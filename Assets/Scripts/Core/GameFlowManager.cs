@@ -12,6 +12,13 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
     private List<IFixedUpdatable> fixedUpdatables;
     private List<ILateUpdatable> lateUpdatables;
 
+#if UNITY_EDITOR
+    // 디버그 모드: 등록된 객체 추적 (에디터 전용)
+    private HashSet<string> registeredUpdatables = new HashSet<string>();
+    private HashSet<string> registeredFixedUpdatables = new HashSet<string>();
+    private HashSet<string> registeredLateUpdatables = new HashSet<string>();
+#endif
+
     // 등록/해제 대기 리스트 (반복문 중 안전한 처리)
     private List<IUpdatable> pendingAddUpdatables;
     private List<IUpdatable> pendingRemoveUpdatables;
@@ -96,6 +103,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
             {
                 updatables.Add(updatable);
                 needsSortUpdatables = true;
+
+#if UNITY_EDITOR
+                // 디버그 정보 기록
+                registeredUpdatables.Add($"{updatable.GetType().Name}_{updatable.GetHashCode()}");
+#endif
             }
         }
     }
@@ -119,6 +131,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
         else
         {
             updatables.Remove(updatable);
+
+#if UNITY_EDITOR
+            // 디버그 정보 제거
+            registeredUpdatables.Remove($"{updatable.GetType().Name}_{updatable.GetHashCode()}");
+#endif
         }
     }
 
@@ -147,6 +164,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
             {
                 fixedUpdatables.Add(fixedUpdatable);
                 needsSortFixedUpdatables = true;
+
+#if UNITY_EDITOR
+                // 디버그 정보 기록
+                registeredFixedUpdatables.Add($"{fixedUpdatable.GetType().Name}_{fixedUpdatable.GetHashCode()}");
+#endif
             }
         }
     }
@@ -169,6 +191,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
         else
         {
             fixedUpdatables.Remove(fixedUpdatable);
+
+#if UNITY_EDITOR
+            // 디버그 정보 제거
+            registeredFixedUpdatables.Remove($"{fixedUpdatable.GetType().Name}_{fixedUpdatable.GetHashCode()}");
+#endif
         }
     }
 
@@ -197,6 +224,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
             {
                 lateUpdatables.Add(lateUpdatable);
                 needsSortLateUpdatables = true;
+
+#if UNITY_EDITOR
+                // 디버그 정보 기록
+                registeredLateUpdatables.Add($"{lateUpdatable.GetType().Name}_{lateUpdatable.GetHashCode()}");
+#endif
             }
         }
     }
@@ -219,6 +251,11 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
         else
         {
             lateUpdatables.Remove(lateUpdatable);
+
+#if UNITY_EDITOR
+            // 디버그 정보 제거
+            registeredLateUpdatables.Remove($"{lateUpdatable.GetType().Name}_{lateUpdatable.GetHashCode()}");
+#endif
         }
     }
 
@@ -418,4 +455,54 @@ public class GameFlowManager : MonoSingleton<GameFlowManager>
     }
 
     #endregion
+
+#if UNITY_EDITOR
+    #region 디버그 (에디터 전용)
+
+    /// <summary>
+    /// 현재 등록된 모든 객체 로그 출력 (에디터 전용)
+    /// </summary>
+    public void LogRegisteredObjects()
+    {
+        int totalCount = registeredUpdatables.Count + registeredFixedUpdatables.Count + registeredLateUpdatables.Count;
+        Debug.Log($"=== GameFlowManager 등록된 객체 현황 ===\n총 {totalCount}개 객체 등록됨");
+
+        if (registeredUpdatables.Count > 0)
+        {
+            Debug.Log($"\n[IUpdatable] {registeredUpdatables.Count}개");
+            foreach (var obj in registeredUpdatables)
+            {
+                Debug.Log($"  - {obj}");
+            }
+        }
+
+        if (registeredFixedUpdatables.Count > 0)
+        {
+            Debug.Log($"\n[IFixedUpdatable] {registeredFixedUpdatables.Count}개");
+            foreach (var obj in registeredFixedUpdatables)
+            {
+                Debug.Log($"  - {obj}");
+            }
+        }
+
+        if (registeredLateUpdatables.Count > 0)
+        {
+            Debug.Log($"\n[ILateUpdatable] {registeredLateUpdatables.Count}개");
+            foreach (var obj in registeredLateUpdatables)
+            {
+                Debug.Log($"  - {obj}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 등록된 객체 수 반환 (에디터 전용)
+    /// </summary>
+    public int GetRegisteredObjectCount()
+    {
+        return registeredUpdatables.Count + registeredFixedUpdatables.Count + registeredLateUpdatables.Count;
+    }
+
+    #endregion
+#endif
 }
