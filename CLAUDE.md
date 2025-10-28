@@ -239,10 +239,85 @@ public class Player : IUpdatable
 }
 ```
 
+### UniTask 활용
+- **코루틴 대신 UniTask 사용**: 성능 최적화와 가독성 향상을 위해 UniTask를 적극 활용합니다.
+- **비동기 처리**: 파일 로드, 네트워크 통신, 씬 로딩 등 무거운 작업은 UniTask로 비동기 처리합니다.
+- **메모리 할당 최소화**: UniTask는 struct 기반으로 GC Allocation이 0입니다.
+
+```csharp
+// 코루틴 대신 UniTask 사용
+public async UniTask LoadDataAsync(CancellationToken cancellationToken)
+{
+    // 비동기 로딩
+    var data = await Resources.LoadAsync<GameObject>("Prefabs/Player");
+
+    // 딜레이 (코루틴의 WaitForSeconds 대체)
+    await UniTask.Delay(TimeSpan.FromSeconds(1f), cancellationToken: cancellationToken);
+
+    // 다음 프레임 대기
+    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+}
+
+// CancellationToken을 활용한 안전한 취소
+public class GameController
+{
+    private CancellationTokenSource cts;
+
+    public void Initialize()
+    {
+        cts = new CancellationTokenSource();
+        LoadGameAsync(cts.Token).Forget();
+    }
+
+    private async UniTaskVoid LoadGameAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await LoadDataAsync(cancellationToken);
+            await InitializeGameAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // 취소 처리
+        }
+    }
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}
+```
+
+**UniTask 사용 가이드:**
+- `UniTask<T>`: 반환 값이 있는 비동기 메서드
+- `UniTask`: 반환 값이 없는 비동기 메서드
+- `UniTaskVoid`: Fire-and-forget 방식 (반환 값 무시, 예외 처리 주의)
+- `CancellationToken`: 항상 파라미터로 받아 안전하게 취소 가능하도록 구현
+- `.Forget()`: UniTaskVoid 대신 사용 가능하지만, 예외 처리 주의
+
+```csharp
+// 좋은 예시: CancellationToken 활용
+public async UniTask<bool> AttackAsync(CancellationToken cancellationToken)
+{
+    await UniTask.Delay(500, cancellationToken: cancellationToken);
+    return true;
+}
+
+// 나쁜 예시: CancellationToken 없이 사용
+public async UniTask AttackAsync()
+{
+    await UniTask.Delay(500); // 취소 불가능
+}
+```
+
 ### 성능 고려사항
 - `GetComponent<T>()`는 비용이 높으므로 캐싱합니다.
 - `Find()` 계열 메서드는 런타임에 최소화합니다.
 - 오브젝트 풀링을 활용하여 빈번한 생성/파괴를 방지합니다.
+- **코루틴 대신 UniTask 사용**으로 GC Allocation 0 달성
+- 비동기 작업은 항상 CancellationToken과 함께 사용하여 메모리 누수 방지
 
 ### 컴포넌트 구조
 - 단일 책임 원칙에 따라 컴포넌트를 분리합니다.
