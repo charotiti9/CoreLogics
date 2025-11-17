@@ -1,52 +1,107 @@
+﻿using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 /// <summary>
 /// CSV 파일 파싱 유틸리티
-/// 리플렉션을 활용하여 CSV를 자동으로 클래스 리스트로 변환
+/// Addressable 시스템을 활용하여 CSV를 자동으로 클래스 리스트로 변환
 /// </summary>
 public static class CSVParser
 {
     /// <summary>
-    /// CSV 파일을 파싱하여 List<T> 반환
+    /// CSV 파일이 위치한 Root 경로
+    /// 기본값: "Assets/Data/CSV"
+    /// </summary>
+    public static string RootPath { get; set; } = "Assets/Data/CSV";
+
+    /// <summary>
+    /// CSV 파일을 비동기로 파싱하여 List<T> 반환
     /// </summary>
     /// <typeparam name="T">변환할 데이터 클래스 타입</typeparam>
-    /// <param name="resourcePath">Resources 폴더 기준 경로 (확장자 제외)</param>
+    /// <param name="fileName">CSV 파일명 (확장자 제외)</param>
+    /// <param name="cancellationToken">취소 토큰</param>
     /// <returns>파싱된 데이터 리스트</returns>
-    public static List<T> Parse<T>(string resourcePath) where T : new()
+    public static async UniTask<List<T>> ParseAsync<T>(string fileName, CancellationToken cancellationToken = default) where T : new()
+    {
+        // 1. 전체 경로 생성
+        string fullPath = $"{RootPath}/{fileName}.csv";
+
+        // 2. Addressable로 CSV 파일 로드
+        AsyncOperationHandle<TextAsset> handle = Addressables.LoadAssetAsync<TextAsset>(fullPath);
+
+        try
+        {
+            // 로드 완료 대기 (취소 가능)
+            TextAsset csvFile = await handle.ToUniTask(cancellationToken: cancellationToken);
+
+            if (csvFile == null)
+            {
+                Debug.LogError($"[CSVParser] CSV 파일을 찾을 수 없습니다: {fullPath}");
+                return new List<T>();
+            }
+
+            // 3. CSV 텍스트 파싱
+            List<T> result = ParseCSVText<T>(csvFile.text, fullPath);
+
+            Debug.Log($"[CSVParser] {fullPath} 파싱 완료: {result.Count}개 항목");
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.LogWarning($"[CSVParser] CSV 로드 취소됨: {fullPath}");
+            return new List<T>();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[CSVParser] CSV 로드 실패: {fullPath}\n{e.Message}");
+            return new List<T>();
+        }
+        finally
+        {
+            // 리소스 해제
+            if (handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
+        }
+    }
+
+    /// <summary>
+    /// CSV 텍스트를 파싱하여 List<T> 반환 (내부 메서드)
+    /// </summary>
+    /// <typeparam name="T">변환할 데이터 클래스 타입</typeparam>
+    /// <param name="csvText">CSV 텍스트</param>
+    /// <param name="filePath">파일 경로 (로그용)</param>
+    /// <returns>파싱된 데이터 리스트</returns>
+    private static List<T> ParseCSVText<T>(string csvText, string filePath) where T : new()
     {
         List<T> result = new List<T>();
 
-        // 1. CSV 파일 로드
-        TextAsset csvFile = Resources.Load<TextAsset>(resourcePath);
-        if (csvFile == null)
-        {
-            Debug.LogError($"[CSVParser] CSV 파일을 찾을 수 없습니다: {resourcePath}");
-            return result;
-        }
-
-        // 2. 줄 단위로 분할 (CR, LF, CRLF 모두 처리)
-        string[] lines = csvFile.text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        // 1. 줄 단위로 분할 (CR, LF, CRLF 모두 처리)
+        string[] lines = csvText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         if (lines.Length < 2)
         {
-            Debug.LogError($"[CSVParser] CSV 파일이 비어있거나 헤더만 존재합니다: {resourcePath}");
+            Debug.LogError($"[CSVParser] CSV 파일이 비어있거나 헤더만 존재합니다: {filePath}");
             return result;
         }
 
-        // 3. 헤더 파싱
+        // 2. 헤더 파싱
         string[] headers = SplitCSVLine(lines[0]);
         if (headers.Length == 0)
         {
-            Debug.LogError($"[CSVParser] 헤더를 파싱할 수 없습니다: {resourcePath}");
+            Debug.LogError($"[CSVParser] 헤더를 파싱할 수 없습니다: {filePath}");
             return result;
         }
 
-        // 4. 타입 정보 가져오기 (리플렉션)
+        // 3. 타입 정보 가져오기 (리플렉션)
         Type type = typeof(T);
 
-        // 5. 데이터 줄 파싱 (헤더 제외)
+        // 4. 데이터 줄 파싱 (헤더 제외)
         for (int i = 1; i < lines.Length; i++)
         {
             string line = lines[i].Trim();
@@ -64,10 +119,10 @@ public static class CSVParser
                 continue;
             }
 
-            // 6. T 인스턴스 생성
+            // 5. T 인스턴스 생성
             T instance = new T();
 
-            // 7. 각 컬럼을 필드/프로퍼티에 매핑
+            // 6. 각 컬럼을 필드/프로퍼티에 매핑
             for (int j = 0; j < headers.Length; j++)
             {
                 string headerName = headers[j].Trim();
@@ -104,7 +159,6 @@ public static class CSVParser
             result.Add(instance);
         }
 
-        Debug.Log($"[CSVParser] {resourcePath} 파싱 완료: {result.Count}개 항목");
         return result;
     }
 
