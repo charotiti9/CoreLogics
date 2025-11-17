@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// MonoBehaviour를 위한 싱글톤 베이스 클래스
@@ -29,7 +29,7 @@ public abstract class MonoSingleton<T> : MonoBehaviour where T : MonoBehaviour
                 // 기존 인스턴스가 없으면 씬에서 찾기
                 if (_instance == null)
                 {
-                    _instance = FindObjectOfType<T>();
+                    _instance = FindFirstObjectByType<T>();
 
                     // 씬에도 없으면 새로 생성
                     if (_instance == null)
