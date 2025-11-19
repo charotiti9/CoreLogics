@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// 전체 게임 플로우를 관리하는 싱글톤 매니저
 /// Update, FixedUpdate, LateUpdate를 중앙에서 관리하여 실행 순서를 명확히 제어
 /// </summary>
-public class GameFlowManager : MonoSingleton<GameFlowManager>
+public class GameFlowManager : EagerMonoSingleton<GameFlowManager>
 {
     // 업데이트 대상 리스트
     private List<IUpdatable> updatables;
