@@ -67,6 +67,13 @@ public static class CSVCodeGenerator
         SetupAddressables();
 
         Debug.Log($"[CSVCodeGenerator] 완료 - 생성: {generatedCount}, 스킵: {skippedCount}");
+
+        // 고아 파일 검사 (CSV는 삭제되었지만 .cs 파일만 남아있는 경우)
+        List<string> orphanedFiles = DetectOrphanedClasses();
+        if (orphanedFiles.Count > 0)
+        {
+            DeleteOrphanedClasses(orphanedFiles);
+        }
     }
 
     /// <summary>
@@ -364,6 +371,102 @@ public static class CSVCodeGenerator
         }
 
         return dictType;
+    }
+
+    /// <summary>
+    /// CSV Schema가 삭제되었지만 생성된 .cs 파일만 남아있는 고아 파일 검사
+    /// </summary>
+    private static List<string> DetectOrphanedClasses()
+    {
+        List<string> orphanedFiles = new List<string>();
+
+        if (!Directory.Exists(CODE_OUTPUT_PATH))
+            return orphanedFiles;
+
+        // 생성된 모든 .cs 파일 찾기
+        string[] csFiles = Directory.GetFiles(CODE_OUTPUT_PATH, "*.cs", SearchOption.TopDirectoryOnly);
+
+        foreach (string csFile in csFiles)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(csFile); // "ItemData"
+            string expectedSchemaPath = Path.Combine(CSV_ROOT_PATH, $"{fileName}_Schema.csv");
+
+            // 대응하는 Schema가 없으면 고아 파일
+            if (!File.Exists(expectedSchemaPath))
+            {
+                orphanedFiles.Add(csFile);
+            }
+        }
+
+        return orphanedFiles;
+    }
+
+    /// <summary>
+    /// 고아 파일 삭제 (사용자 확인 후)
+    /// </summary>
+    private static void DeleteOrphanedClasses(List<string> orphanedFiles)
+    {
+        if (orphanedFiles.Count == 0)
+            return;
+
+        // 파일 목록 생성
+        StringBuilder fileList = new StringBuilder();
+        fileList.AppendLine("다음 파일들은 대응하는 CSV Schema가 없습니다:");
+        fileList.AppendLine();
+
+        foreach (string filePath in orphanedFiles)
+        {
+            string fileName = Path.GetFileName(filePath);
+            fileList.AppendLine($"  - {fileName}");
+        }
+
+        fileList.AppendLine();
+        fileList.AppendLine("삭제하시겠습니까?");
+
+        // 사용자 확인
+        bool confirm = EditorUtility.DisplayDialog(
+            "삭제된 CSV 감지",
+            fileList.ToString(),
+            "삭제",
+            "취소");
+
+        if (confirm)
+        {
+            // 파일 삭제
+            int deletedCount = 0;
+            foreach (string filePath in orphanedFiles)
+            {
+                try
+                {
+                    // .cs 파일 삭제
+                    File.Delete(filePath);
+
+                    // .meta 파일도 삭제
+                    string metaPath = filePath + ".meta";
+                    if (File.Exists(metaPath))
+                    {
+                        File.Delete(metaPath);
+                    }
+
+                    deletedCount++;
+                    Debug.Log($"[CSVCodeGenerator] 고아 파일 삭제: {Path.GetFileName(filePath)}");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[CSVCodeGenerator] 파일 삭제 실패: {Path.GetFileName(filePath)} - {e.Message}");
+                }
+            }
+
+            if (deletedCount > 0)
+            {
+                AssetDatabase.Refresh();
+                Debug.Log($"[CSVCodeGenerator] 고아 파일 삭제 완료: {deletedCount}개");
+            }
+        }
+        else
+        {
+            Debug.Log("[CSVCodeGenerator] 고아 파일 삭제 취소됨");
+        }
     }
 }
 #endif
