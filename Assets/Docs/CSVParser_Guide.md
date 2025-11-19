@@ -280,14 +280,119 @@ public int? Level;
 
 ### 2. Parse Mode
 
-CSVParser는 두 가지 파싱 모드를 지원합니다:
+CSVParser는 데이터 파싱 오류 발생 시 처리 방식을 선택할 수 있는 두 가지 모드를 지원합니다.
+
+#### Lenient 모드 (기본)
+
+**특징:**
+- 데이터 변환 실패 시 **기본값으로 대체**하고 계속 진행
+- 파싱 오류가 있어도 **최대한 많은 데이터를 로드**
+- 유연하고 관대한 방식
+
+**언제 사용하나요?**
+- ✅ 개발 중 테스트 데이터가 완벽하지 않을 때
+- ✅ 일부 데이터 오류를 허용하고 게임을 계속 실행하고 싶을 때
+- ✅ 빠른 프로토타이핑 단계
+- ✅ 데이터 누락이 치명적이지 않은 경우
+
+**동작 방식:**
+```csv
+ID,Name,Price
+1,체력 포션,100
+2,마나 포션,잘못된값    # Price가 int로 변환 불가
+3,철검,500
+```
+
+결과: 3개의 행이 모두 로드됨 (2번 행의 Price는 기본값 0)
+
+**사용 예시:**
+```csharp
+// Lenient 모드 (기본값)
+List<ItemData> items = await CSVParser.ParseAsync<ItemData>(
+    "ItemData",
+    cancellationToken,
+    ParseMode.Lenient
+);
+
+// items.Count == 3 (모든 행이 로드됨)
+// items[1].Price == 0 (기본값으로 대체됨)
+```
+
+---
+
+#### Strict 모드
+
+**특징:**
+- 데이터 변환 실패 시 **해당 행 전체를 스킵**
+- 데이터 무결성을 엄격하게 유지
+- 오류가 있는 행은 결과에 포함되지 않음
+
+**언제 사용하나요?**
+- ✅ 프로덕션 빌드 (출시 버전)
+- ✅ 데이터 무결성이 중요한 경우
+- ✅ 잘못된 데이터로 인한 버그를 방지하고 싶을 때
+- ✅ CSV 데이터 검증 도구로 사용할 때
+
+**동작 방식:**
+```csv
+ID,Name,Price
+1,체력 포션,100
+2,마나 포션,잘못된값    # Price가 int로 변환 불가 → 행 전체 스킵
+3,철검,500
+```
+
+결과: 2개의 행만 로드됨 (2번 행은 제외됨)
+
+**사용 예시:**
+```csharp
+// Strict 모드
+List<ItemData> items = await CSVParser.ParseAsync<ItemData>(
+    "ItemData",
+    cancellationToken,
+    ParseMode.Strict
+);
+
+// items.Count == 2 (오류가 있는 행은 스킵됨)
+// 콘솔에 경고 메시지 출력: "[CSVParser] 변환 실패로 라인 3 스킵 (Strict 모드)"
+```
+
+---
+
+#### 모드 비교표
+
+| 항목 | Lenient (관대) | Strict (엄격) |
+|------|---------------|--------------|
+| **변환 실패 시** | 기본값 사용 | 행 전체 스킵 |
+| **로드된 행 수** | 최대한 많이 | 유효한 행만 |
+| **데이터 무결성** | 낮음 (기본값 포함) | 높음 (완벽한 행만) |
+| **사용 시점** | 개발/테스트 | 프로덕션 |
+| **권장 용도** | 프로토타입, 유연성 필요 | 출시 빌드, 안정성 필요 |
+
+---
+
+#### 실전 활용 패턴
 
 ```csharp
-// Lenient 모드 (기본): 파싱 실패 시 기본값 사용
-await CSVParser.ParseAsync<ItemData>("ItemData", cancellationToken, ParseMode.Lenient);
+public class CSVLoader
+{
+    public async UniTask LoadGameDataAsync(CancellationToken cancellationToken)
+    {
+        // 개발 빌드에서는 Lenient 모드 (유연성)
+        // 프로덕션에서는 Strict 모드 (안정성)
+        ParseMode mode = Debug.isDebugBuild ? ParseMode.Lenient : ParseMode.Strict;
 
-// Strict 모드: 파싱 실패 시 예외 발생
-await CSVParser.ParseAsync<ItemData>("ItemData", cancellationToken, ParseMode.Strict);
+        List<ItemData> items = await CSVParser.ParseAsync<ItemData>(
+            "ItemData",
+            cancellationToken,
+            mode
+        );
+
+        if (mode == ParseMode.Strict && items.Count == 0)
+        {
+            Debug.LogError("[CSVLoader] 유효한 아이템 데이터가 없습니다!");
+        }
+    }
+}
 ```
 
 ### 3. 특정 테이블만 로드
