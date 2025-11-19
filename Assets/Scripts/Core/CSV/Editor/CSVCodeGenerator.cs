@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -231,6 +232,8 @@ public static class CSVCodeGenerator
         sb.AppendLine("// 수정하지 마세요!");
         sb.AppendLine();
         sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using UnityEngine;");
         sb.AppendLine();
 
         // 클래스 선언
@@ -287,20 +290,80 @@ public static class CSVCodeGenerator
 
     /// <summary>
     /// CSV 타입을 C# 타입으로 변환
+    /// 기본 타입, Nullable, 배열, 리스트, 딕셔너리, 커스텀 타입 지원
     /// </summary>
     private static string ConvertToCSType(string csvType)
     {
-        string lower = csvType.ToLower();
+        string trimmed = csvType.Trim();
+        string lower = trimmed.ToLower();
 
+        // 기본 타입
         if (lower == "int") return "int";
         if (lower == "float") return "float";
         if (lower == "bool") return "bool";
         if (lower == "string") return "string";
+
+        // Nullable 타입
         if (lower == "int?") return "int?";
         if (lower == "float?") return "float?";
         if (lower == "bool?") return "bool?";
 
+        // 배열 타입 (예: int[], string[], float[])
+        if (trimmed.EndsWith("[]"))
+        {
+            return trimmed; // 그대로 반환
+        }
+
+        // 리스트 타입 (예: List<int>, List<string>)
+        if (trimmed.StartsWith("List<", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith(">"))
+        {
+            return trimmed; // 그대로 반환
+        }
+
+        // 딕셔너리 타입 (예: Dictionary<int,string>, Dictionary<string, int>)
+        if (trimmed.StartsWith("Dictionary<", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith(">"))
+        {
+            // 공백 정규화: "Dictionary<int,string>" → "Dictionary<int, string>"
+            string normalized = NormalizeDictionaryType(trimmed);
+            return normalized;
+        }
+
+        // Enum 및 커스텀 타입 (예: ItemType, Vector3, CustomClass)
+        // 첫 글자가 대문자면 커스텀 타입으로 간주
+        if (char.IsUpper(trimmed[0]))
+        {
+            return trimmed;
+        }
+
+        // 인식 불가능한 타입은 string으로 폴백
+        Debug.LogWarning($"[CSVCodeGenerator] 알 수 없는 타입: '{csvType}' → string으로 처리됩니다.");
         return "string";
+    }
+
+    /// <summary>
+    /// Dictionary 타입 문자열 정규화
+    /// "Dictionary<int,string>" → "Dictionary<int, string>"
+    /// </summary>
+    private static string NormalizeDictionaryType(string dictType)
+    {
+        // "Dictionary<int,string>" 형식 파싱
+        int openBracket = dictType.IndexOf('<');
+        int closeBracket = dictType.LastIndexOf('>');
+
+        if (openBracket < 0 || closeBracket < 0)
+            return dictType;
+
+        string innerTypes = dictType.Substring(openBracket + 1, closeBracket - openBracket - 1);
+        string[] types = innerTypes.Split(',');
+
+        if (types.Length == 2)
+        {
+            string keyType = types[0].Trim();
+            string valueType = types[1].Trim();
+            return $"Dictionary<{keyType}, {valueType}>";
+        }
+
+        return dictType;
     }
 }
 #endif

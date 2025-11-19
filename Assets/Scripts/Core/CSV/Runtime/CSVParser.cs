@@ -343,6 +343,25 @@ public static class CSVParser
 
             Type typeToConvert = isNullable ? underlyingType : targetType;
 
+            // 복합 타입 처리 (배열, 리스트, 딕셔너리, 커스텀 클래스)
+            if (CSVComplexTypeParser.IsComplexType(typeToConvert, out ComplexTypeKind kind))
+            {
+                switch (kind)
+                {
+                    case ComplexTypeKind.Array:
+                        return CSVComplexTypeParser.ParseArray(value, typeToConvert);
+
+                    case ComplexTypeKind.List:
+                        return CSVComplexTypeParser.ParseList(value, typeToConvert);
+
+                    case ComplexTypeKind.Dictionary:
+                        return CSVComplexTypeParser.ParseDictionary(value, typeToConvert);
+
+                    case ComplexTypeKind.CustomType:
+                        return CSVComplexTypeParser.ParseCustomType(value, typeToConvert);
+                }
+            }
+
             // Enum 처리 (TryParse 사용)
             if (typeToConvert.IsEnum)
             {
