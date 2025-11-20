@@ -28,13 +28,10 @@ public class CSVManager : LazySingleton<CSVManager>
         // 2. 모든 스키마 로드
         await LoadAllSchemasAsync(cancellationToken);
 
-        // 3. 순환 참조 검사
-        CheckCircularReferences();
-
-        // 4. 모든 데이터 로드
+        // 3. 모든 데이터 로드
         await LoadAllTablesAsync(cancellationToken);
 
-        // 5. 참조 해결
+        // 4. 참조 해결
         ResolveAllReferences();
 
         Debug.Log("[CSVManager] 초기화 완료");
@@ -250,28 +247,4 @@ public class CSVManager : LazySingleton<CSVManager>
         return new List<Type>(csvDataTypes);
     }
 
-    /// <summary>
-    /// 순환 참조 검사
-    /// 테이블 간 참조에서 순환이 발견되면 예외를 발생시킵니다.
-    /// </summary>
-    private void CheckCircularReferences()
-    {
-        Debug.Log("[CSVManager] 순환 참조 검사 시작");
-
-        // 참조 그래프 구축
-        var graph = CSVCircularReferenceChecker.BuildReferenceGraph(schemas);
-
-        // 순환 참조 검사
-        if (CSVCircularReferenceChecker.HasCircularReference(graph, out List<string> cycle))
-        {
-            string cyclePath = CSVCircularReferenceChecker.FormatCyclePath(cycle);
-            string errorMsg = $"[CSVManager] 순환 참조 감지!\n순환 경로: {cyclePath}\n\n" +
-                              $"테이블 간 참조가 순환을 이루고 있습니다. 스키마를 수정하여 순환을 제거해주세요.";
-
-            Debug.LogError(errorMsg);
-            throw new InvalidOperationException(errorMsg);
-        }
-
-        Debug.Log("[CSVManager] 순환 참조 검사 통과");
-    }
 }

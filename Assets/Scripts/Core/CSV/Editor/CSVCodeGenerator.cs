@@ -31,6 +31,53 @@ public static class CSVCodeGenerator
         // 모든 _Schema.csv 파일 찾기
         string[] schemaFiles = Directory.GetFiles(CSV_ROOT_PATH, "*_Schema.csv", SearchOption.TopDirectoryOnly);
 
+        // 1단계: 모든 스키마 파싱
+        Dictionary<string, CSVSchema> schemas = new Dictionary<string, CSVSchema>();
+
+        for (int i = 0; i < schemaFiles.Length; i++)
+        {
+            string schemaPath = schemaFiles[i];
+            string fileName = Path.GetFileNameWithoutExtension(schemaPath); // "ItemData_Schema"
+            string tableName = fileName.Replace("_Schema", ""); // "ItemData"
+
+            List<CSVSchemaColumn> columns = ParseSchemaCSV(schemaPath);
+            if (columns.Count == 0)
+            {
+                Debug.LogWarning($"[CSVCodeGenerator] 스키마 비어있음: {tableName}");
+                continue;
+            }
+
+            CSVSchema schema = new CSVSchema
+            {
+                TableName = tableName,
+                Columns = columns
+            };
+
+            schemas[tableName] = schema;
+        }
+
+        // 2단계: 순환 참조 검사
+        Debug.Log("[CSVCodeGenerator] 순환 참조 검사 시작");
+
+        var graph = CSVCircularReferenceChecker.BuildReferenceGraph(schemas);
+
+        if (CSVCircularReferenceChecker.HasCircularReference(graph, out List<string> cycle))
+        {
+            string cyclePath = CSVCircularReferenceChecker.FormatCyclePath(cycle);
+            string errorMsg = $"[CSVCodeGenerator] 순환 참조 감지!\n순환 경로: {cyclePath}\n\n" +
+                              $"테이블 간 참조가 순환을 이루고 있습니다. 스키마를 수정하여 순환을 제거해주세요.";
+
+            Debug.LogError(errorMsg);
+            EditorUtility.DisplayDialog(
+                "CSV 순환 참조 감지",
+                $"순환 경로: {cyclePath}\n\n테이블 간 참조가 순환을 이루고 있습니다.\n스키마를 수정하여 순환을 제거해주세요.",
+                "확인");
+            return; // 코드 생성 중단
+        }
+
+        Debug.Log("[CSVCodeGenerator] 순환 참조 검사 통과");
+
+        // 3단계: 변경된 스키마만 코드 생성 (Dirty Check)
         int generatedCount = 0;
         int skippedCount = 0;
 
@@ -38,9 +85,7 @@ public static class CSVCodeGenerator
         {
             string schemaPath = schemaFiles[i];
             string fileName = Path.GetFileNameWithoutExtension(schemaPath); // "ItemData_Schema"
-
-            // "ItemData_Schema" → "ItemData"
-            string tableName = fileName.Replace("_Schema", "");
+            string tableName = fileName.Replace("_Schema", ""); // "ItemData"
 
             // Dirty 체크
             string csFilePath = Path.Combine(CODE_OUTPUT_PATH, $"{tableName}.cs");
@@ -48,8 +93,13 @@ public static class CSVCodeGenerator
             if (IsDirty(schemaPath, csFilePath))
             {
                 Debug.Log($"[CSVCodeGenerator] 변경 감지: {tableName}");
-                GenerateClassFromSchema(schemaPath, tableName);
-                generatedCount++;
+
+                // 이미 파싱된 스키마 사용
+                if (schemas.TryGetValue(tableName, out CSVSchema schema))
+                {
+                    GenerateClass(schema);
+                    generatedCount++;
+                }
             }
             else
             {
@@ -159,28 +209,6 @@ public static class CSVCodeGenerator
         return schemaTime > csTime;
     }
 
-    /// <summary>
-    /// Schema CSV 파일로부터 C# 클래스 생성
-    /// </summary>
-    private static void GenerateClassFromSchema(string schemaPath, string tableName)
-    {
-        // Schema CSV 파싱 (간단한 수동 파싱)
-        List<CSVSchemaColumn> columns = ParseSchemaCSV(schemaPath);
-
-        if (columns.Count == 0)
-        {
-            Debug.LogError($"[CSVCodeGenerator] 스키마 비어있음: {tableName}");
-            return;
-        }
-
-        CSVSchema schema = new CSVSchema
-        {
-            TableName = tableName,
-            Columns = columns
-        };
-
-        GenerateClass(schema);
-    }
 
     /// <summary>
     /// Schema CSV를 수동으로 파싱 (Editor 전용, 간단한 파싱)

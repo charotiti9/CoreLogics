@@ -14,17 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
   m_GroupName: CSV Data
   m_GUID: 2359239847d5dd94b904d6d6d18e4cb6
-  m_SerializeEntries:
-  - m_GUID: 2cfb3b8e41e59804aa591211e48eae6b
-    m_Address: Assets/Data/CSV/TestItem_Schema.csv
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 480c2c9e351d99c44b8a22068bead529
-    m_Address: Assets/Data/CSV/TestItem.csv
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: e1713935dfe4d9d40a718d95b06d61e1, type: 2}
   m_SchemaSet:
