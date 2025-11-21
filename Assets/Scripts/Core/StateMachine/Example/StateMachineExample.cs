@@ -1,21 +1,13 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-/// <summary>
-/// StateMachine 사용 예시 - 기본 사용법
-/// </summary>
 public class StateMachineExample : MonoBehaviour
 {
     private StateMachine<ExampleContext> stateMachine;
 
     private void Awake()
     {
-        // 1. Context 생성
         var context = new ExampleContext { Value = 0 };
-
-        // 2. StateMachine 생성 (생성자로 한 번에)
         stateMachine = new StateMachine<ExampleContext>(context);
-
-        // 3. 초기 상태 설정
         stateMachine.ChangeState(new StateA());
     }
 
@@ -31,9 +23,6 @@ public class StateMachineExample : MonoBehaviour
     }
 }
 
-/// <summary>
-/// StateMachine 확장 예시 - OnNext() 활용
-/// </summary>
 public class CustomStateMachineExample : MonoBehaviour
 {
     private CustomStateMachine stateMachine;
@@ -42,7 +31,6 @@ public class CustomStateMachineExample : MonoBehaviour
     {
         var context = new ExampleContext { Value = 0 };
 
-        // CustomStateMachine 사용 (OnNext 오버라이드)
         stateMachine = new CustomStateMachine(context);
         stateMachine.ChangeState(new StateA());
     }
@@ -53,13 +41,11 @@ public class CustomStateMachineExample : MonoBehaviour
     }
 }
 
-/// <summary>
-/// StateMachine 상속 - OnNext 확장 포인트 활용
-/// </summary>
 public class CustomStateMachine : StateMachine<ExampleContext>
 {
     public CustomStateMachine(ExampleContext context) : base(context) { }
 
+    // OnNext 활용 예시
     protected override void OnNext()
     {
         // 상태 전환마다 실행될 커스텀 로직
@@ -68,10 +54,6 @@ public class CustomStateMachine : StateMachine<ExampleContext>
 }
 
 #region Context
-
-/// <summary>
-/// Context - 상태들이 공유할 데이터
-/// </summary>
 public class ExampleContext
 {
     public int Value { get; set; }
@@ -82,7 +64,7 @@ public class ExampleContext
 #region States
 
 /// <summary>
-/// StateA - StateBase 상속 방식 (간단한 상태)
+/// StateBase 상속 방식 (간단한 상태)
 /// </summary>
 public class StateA : StateBase<ExampleContext>
 {
@@ -104,7 +86,7 @@ public class StateA : StateBase<ExampleContext>
 }
 
 /// <summary>
-/// StateB - IState 직접 구현 방식 (복잡한 상태)
+/// IState 직접 구현 방식 (복잡한 상태)
 /// </summary>
 public class StateB : IState<ExampleContext>
 {

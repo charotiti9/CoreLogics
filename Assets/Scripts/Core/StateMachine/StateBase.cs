@@ -1,6 +1,8 @@
+﻿using System;
+
 /// <summary>
 /// 상태 베이스 클래스 (선택적 사용)
-/// IState를 직접 구현하는 대신 이 클래스를 상속하여 보일러플레이트 코드 감소
+/// IState를 직접 구현하는 대신 이 클래스를 상속하여 간단하게 사용 가능
 /// Context를 protected 필드로 제공하여 파생 클래스에서 쉽게 접근 가능
 /// </summary>
 /// <typeparam name="TContext">상태가 조작할 컨텍스트 타입 (class 제약)</typeparam>
@@ -12,29 +14,20 @@ public abstract class StateBase<TContext> : IState<TContext> where TContext : cl
     /// </summary>
     protected TContext Context { get; private set; }
 
-    /// <summary>
-    /// 상태 진입 시 호출 (IState 구현)
-    /// Context를 설정하고 OnEnter를 호출
-    /// </summary>
+    [Obsolete("StateMachine에서 호출하는 함수입니다. 직접 호출하지 마세요.")]
     public void Enter(TContext context)
     {
         Context = context;
         OnEnter();
     }
 
-    /// <summary>
-    /// 매 프레임 호출 (IState 구현)
-    /// OnUpdate를 호출
-    /// </summary>
+    [Obsolete("StateMachine에서 호출하는 함수입니다. 직접 호출하지 마세요.")]
     public void Update(TContext context, float deltaTime)
     {
         OnUpdate(deltaTime);
     }
 
-    /// <summary>
-    /// 상태 종료 시 호출 (IState 구현)
-    /// OnExit를 호출하고 Context를 null로 초기화
-    /// </summary>
+    [Obsolete("StateMachine에서 호출하는 함수입니다. 직접 호출하지 마세요.")]
     public void Exit(TContext context)
     {
         OnExit();
