@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Common.UI
 {
     /// <summary>
-    /// Screen 좌표와 UI 좌표 간 변환 유틸리티
+    /// Screen 좌표, World 좌표, UI 좌표 간 변환 유틸리티
     /// </summary>
     public static class UICoordinateConverter
     {
@@ -99,6 +100,117 @@ namespace Common.UI
                 // Camera 모드
                 return usedCamera.WorldToScreenPoint(worldPos);
             }
+        }
+
+        /// <summary>
+        /// 월드 좌표를 UI 좌표로 변환합니다. (CanvasScaler 고려)
+        /// 게임 오브젝트 위에 UI를 배치할 때 사용합니다.
+        /// </summary>
+        /// <param name="worldPos">월드 좌표</param>
+        /// <param name="layer">UI 레이어</param>
+        /// <param name="worldCamera">월드 카메라 (null이면 Camera.main 사용)</param>
+        /// <returns>UI 로컬 좌표 (anchoredPosition)</returns>
+        public static Vector3 WorldToUIPosition(Vector3 worldPos, UILayer layer, Camera worldCamera = null)
+        {
+            if (worldCamera == null)
+            {
+                worldCamera = Camera.main;
+            }
+
+            if (worldCamera == null)
+            {
+                Debug.LogError("World camera is null!");
+                return Vector3.zero;
+            }
+
+            // 월드 좌표 → 뷰포트 좌표 (0~1)
+            Vector3 viewport = worldCamera.WorldToViewportPoint(worldPos);
+            viewport.x -= 0.5f;
+            viewport.y -= 0.5f;
+            viewport.z = 0;
+
+            // Canvas 정보 가져오기
+            Canvas canvas = UIManager.Instance.GetCanvas(layer);
+            if (canvas == null)
+            {
+                Debug.LogError($"Canvas for layer {layer} not found!");
+                return Vector3.zero;
+            }
+
+            CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler == null)
+            {
+                Debug.LogError($"CanvasScaler not found on layer {layer}!");
+                return Vector3.zero;
+            }
+
+            // 뷰포트 좌표 → 스크린 좌표
+            Vector3 screenPoint = new Vector3(
+                viewport.x * Screen.width,
+                viewport.y * Screen.height,
+                0
+            );
+
+            // CanvasScaler 적용
+            switch (scaler.screenMatchMode)
+            {
+                case CanvasScaler.ScreenMatchMode.MatchWidthOrHeight:
+                    float widthRatio = scaler.referenceResolution.x / Screen.width;
+                    float heightRatio = scaler.referenceResolution.y / Screen.height;
+                    float ratio = scaler.matchWidthOrHeight;
+                    float scaleFactor = ratio * widthRatio + (1 - ratio) * heightRatio;
+                    screenPoint *= scaleFactor;
+                    break;
+
+                case CanvasScaler.ScreenMatchMode.Expand:
+                    screenPoint.x *= scaler.referenceResolution.x / Screen.width;
+                    screenPoint.y *= scaler.referenceResolution.y / Screen.height;
+                    break;
+
+                case CanvasScaler.ScreenMatchMode.Shrink:
+                    screenPoint.x /= Screen.width / scaler.referenceResolution.x;
+                    screenPoint.y /= Screen.height / scaler.referenceResolution.y;
+                    break;
+            }
+
+            return screenPoint;
+        }
+
+        /// <summary>
+        /// 월드 좌표를 UI 좌표로 변환합니다. (간편 버전)
+        /// ScreenSpaceOverlay Canvas용입니다.
+        /// </summary>
+        /// <param name="worldPos">월드 좌표</param>
+        /// <param name="canvas">대상 Canvas</param>
+        /// <param name="worldCamera">월드 카메라 (null이면 Camera.main 사용)</param>
+        /// <returns>UI 로컬 좌표</returns>
+        public static Vector2 WorldToUIPositionSimple(Vector3 worldPos, Canvas canvas, Camera worldCamera = null)
+        {
+            if (worldCamera == null)
+            {
+                worldCamera = Camera.main;
+            }
+
+            if (worldCamera == null || canvas == null)
+            {
+                Debug.LogError("Camera or Canvas is null!");
+                return Vector2.zero;
+            }
+
+            // 월드 좌표 → 스크린 좌표
+            Vector3 screenPos = worldCamera.WorldToScreenPoint(worldPos);
+
+            // 스크린 좌표 → UI 로컬 좌표
+            RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+            Vector2 uiPos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect,
+                screenPos,
+                canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera,
+                out uiPos
+            );
+
+            return uiPos;
         }
 
         /// <summary>

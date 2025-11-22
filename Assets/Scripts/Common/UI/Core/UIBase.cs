@@ -101,6 +101,13 @@ namespace Common.UI
         /// <summary>
         /// 내부적으로 UI를 표시합니다.
         /// UIManager에서 호출합니다.
+        ///
+        /// 생명주기:
+        /// 1. OnInitialize (최초 1회만)
+        /// 2. GameObject.SetActive(true)
+        /// 3. ShowAnimation
+        /// 4. OnShowAsync
+        /// 5. 인스턴스 반환 (초기화 보장)
         /// </summary>
         internal async UniTask ShowInternalAsync(object data, CancellationToken ct)
         {
@@ -113,25 +120,32 @@ namespace Common.UI
             gameObject.SetActive(true);
             IsShowing = true;
 
-            // 표시 애니메이션 재생
+            // 커스텀 Show 로직 (애니메이션 전에 UI 데이터 설정)
+            await OnShowAsync(ct);
+
+            // 표시 애니메이션 재생 (UI 준비 완료 후)
             if (ShowAnimation != null)
             {
                 await ShowAnimation.PlayAsync(RectTransform, ct);
             }
 
-            // 커스텀 Show 로직
-            await OnShowAsync(ct);
+            // 이 시점에서 UI가 완전히 준비되어 인스턴스가 반환됨
         }
 
         /// <summary>
         /// 내부적으로 UI를 숨깁니다.
         /// UIManager에서 호출합니다.
+        ///
+        /// 생명주기:
+        /// 1. OnHideAsync (정리 로직)
+        /// 2. HideAnimation (즉시 숨김이 아닌 경우)
+        /// 3. GameObject.SetActive(false)
         /// </summary>
         internal async UniTask HideInternalAsync(bool immediate, CancellationToken ct)
         {
             IsShowing = false;
 
-            // 커스텀 Hide 로직
+            // 커스텀 Hide 로직 (정리 작업)
             await OnHideAsync(ct);
 
             // 숨김 애니메이션 재생 (즉시 숨김이 아닌 경우)
@@ -141,6 +155,28 @@ namespace Common.UI
             }
 
             gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Static Helper: UI를 표시합니다.
+        /// 각 UI 클래스에서 이 메서드를 사용하여 편리한 static Show 메서드를 만들 수 있습니다.
+        /// </summary>
+        protected static async UniTask<T> ShowUI<T>(
+            UILayer layer,
+            object data = null,
+            bool useDim = false,
+            CancellationToken ct = default
+        ) where T : UIBase
+        {
+            return await UIManager.Instance.ShowAsync<T>(layer, data, useDim, ct);
+        }
+
+        /// <summary>
+        /// Static Helper: UI를 숨깁니다.
+        /// </summary>
+        protected static void HideUI<T>(bool immediate = false) where T : UIBase
+        {
+            UIManager.Instance.Hide<T>(immediate);
         }
 
         private void OnDestroy()

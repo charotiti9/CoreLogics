@@ -8,11 +8,12 @@ namespace Common.UI
 {
     /// <summary>
     /// Dim 효과(배경 어둡게 하기) 관리
-    /// 각 레이어별로 독립적인 Dim을 관리합니다.
+    /// 각 레이어별로 독립적인 Dim을 관리하며, UI Stack을 지원합니다.
     /// </summary>
     public class UIDimController
     {
         private readonly Dictionary<UILayer, GameObject> dimObjects = new Dictionary<UILayer, GameObject>();
+        private readonly Dictionary<UILayer, List<UIBase>> dimUIStacks = new Dictionary<UILayer, List<UIBase>>();
         private readonly UICanvas uiCanvas;
 
         // Dim 설정
@@ -29,42 +30,126 @@ namespace Common.UI
 
         /// <summary>
         /// Dim을 표시합니다. (페이드 인)
+        /// UI Stack을 지원하여 중첩된 팝업에서도 올바르게 동작합니다.
         /// </summary>
+        /// <param name="ui">Dim을 사용하는 UI (Stack 관리용)</param>
         /// <param name="layer">레이어</param>
         /// <param name="alpha">Dim 투명도 (0~1)</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask ShowDimAsync(UILayer layer, float alpha = 0.7f, CancellationToken ct = default)
+        public async UniTask ShowDimAsync(UIBase ui, UILayer layer, float alpha = 0.7f, CancellationToken ct = default)
         {
-            // 이미 Dim이 있으면 알파값만 업데이트
-            if (dimObjects.TryGetValue(layer, out GameObject existingDim) && existingDim != null)
+            // UI Stack에 추가
+            if (!dimUIStacks.ContainsKey(layer))
             {
-                CanvasGroup canvasGroup = existingDim.GetComponent<CanvasGroup>();
-                if (canvasGroup != null)
-                {
-                    await FadeAsync(canvasGroup, canvasGroup.alpha, alpha, ct);
-                }
-                return;
+                dimUIStacks[layer] = new List<UIBase>();
             }
 
-            // Dim GameObject 생성
-            GameObject dimObj = CreateDim(layer);
-            dimObjects[layer] = dimObj;
+            if (ui != null && !dimUIStacks[layer].Contains(ui))
+            {
+                dimUIStacks[layer].Add(ui);
+            }
+
+            // Dim GameObject 생성 또는 가져오기
+            if (!dimObjects.TryGetValue(layer, out GameObject dimObj) || dimObj == null)
+            {
+                dimObj = CreateDim(layer);
+                dimObjects[layer] = dimObj;
+            }
+
+            // Dim을 UI 바로 아래로 이동 (Stack 최상단 UI 기준)
+            if (ui != null)
+            {
+                Transform uiTransform = ui.transform;
+                Transform dimTransform = dimObj.transform;
+                dimTransform.SetParent(uiTransform.parent);
+
+                int siblingIndex = uiTransform.GetSiblingIndex();
+                if (siblingIndex <= 0)
+                {
+                    dimTransform.SetAsFirstSibling();
+                }
+                else
+                {
+                    dimTransform.SetSiblingIndex(siblingIndex - 1);
+                }
+            }
 
             // 페이드 인 애니메이션
             CanvasGroup dimCanvasGroup = dimObj.GetComponent<CanvasGroup>();
-            await FadeAsync(dimCanvasGroup, 0f, alpha, ct);
+            if (dimCanvasGroup != null)
+            {
+                await FadeAsync(dimCanvasGroup, dimCanvasGroup.alpha, alpha, ct);
+            }
+        }
+
+        /// <summary>
+        /// Dim을 표시합니다. (UI 없이 레이어만 지정)
+        /// 하위 호환성을 위해 유지합니다.
+        /// </summary>
+        public async UniTask ShowDimAsync(UILayer layer, float alpha = 0.7f, CancellationToken ct = default)
+        {
+            await ShowDimAsync(null, layer, alpha, ct);
         }
 
         /// <summary>
         /// Dim을 숨깁니다. (페이드 아웃)
+        /// UI Stack을 관리하여 중첩된 팝업에서도 올바르게 동작합니다.
         /// </summary>
+        /// <param name="ui">Dim을 사용한 UI (Stack 관리용)</param>
         /// <param name="layer">레이어</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask HideDimAsync(UILayer layer, CancellationToken ct = default)
+        public async UniTask HideDimAsync(UIBase ui, UILayer layer, CancellationToken ct = default)
+        {
+            if (!dimUIStacks.ContainsKey(layer))
+            {
+                return;
+            }
+
+            // UI Stack에서 제거
+            var stack = dimUIStacks[layer];
+            int index = stack.IndexOf(ui);
+
+            if (index != -1)
+            {
+                stack.RemoveAt(index);
+
+                // 스택에 다른 UI가 남아있으면 그 아래로 Dim 이동
+                if (stack.Count > 0)
+                {
+                    UIBase prevUI = stack[stack.Count - 1]; // 최상단 UI
+                    if (dimObjects.TryGetValue(layer, out GameObject dimObj) && dimObj != null)
+                    {
+                        Transform uiTransform = prevUI.transform;
+                        Transform dimTransform = dimObj.transform;
+                        dimTransform.SetParent(uiTransform.parent);
+
+                        int siblingIndex = uiTransform.GetSiblingIndex();
+                        if (siblingIndex <= 0)
+                        {
+                            dimTransform.SetAsFirstSibling();
+                        }
+                        else
+                        {
+                            dimTransform.SetSiblingIndex(siblingIndex - 1);
+                        }
+                    }
+                }
+                else
+                {
+                    // 스택이 비었으면 Dim 숨김
+                    await HideDimCompletelyAsync(layer, ct);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Dim을 완전히 숨깁니다. (내부용)
+        /// </summary>
+        private async UniTask HideDimCompletelyAsync(UILayer layer, CancellationToken ct)
         {
             if (!dimObjects.TryGetValue(layer, out GameObject dimObj) || dimObj == null)
             {
-                return; // Dim이 없음
+                return;
             }
 
             // 페이드 아웃 애니메이션
@@ -77,6 +162,21 @@ namespace Common.UI
         }
 
         /// <summary>
+        /// Dim을 숨깁니다. (UI 없이 레이어만 지정)
+        /// 하위 호환성을 위해 유지합니다.
+        /// </summary>
+        public async UniTask HideDimAsync(UILayer layer, CancellationToken ct = default)
+        {
+            await HideDimCompletelyAsync(layer, ct);
+
+            // 스택 정리
+            if (dimUIStacks.ContainsKey(layer))
+            {
+                dimUIStacks[layer].Clear();
+            }
+        }
+
+        /// <summary>
         /// Dim을 즉시 제거합니다. (애니메이션 없음)
         /// </summary>
         /// <param name="layer">레이어</param>
@@ -86,6 +186,12 @@ namespace Common.UI
             {
                 GameObject.Destroy(dimObj);
                 dimObjects.Remove(layer);
+            }
+
+            // 스택 정리
+            if (dimUIStacks.ContainsKey(layer))
+            {
+                dimUIStacks[layer].Clear();
             }
         }
 
@@ -171,6 +277,13 @@ namespace Common.UI
                 }
             }
             dimObjects.Clear();
+
+            // 모든 스택 정리
+            foreach (var stack in dimUIStacks.Values)
+            {
+                stack.Clear();
+            }
+            dimUIStacks.Clear();
         }
     }
 }

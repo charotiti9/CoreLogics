@@ -27,11 +27,11 @@ namespace Common.UI
         /// 풀에서 UI를 가져오거나 새로 생성합니다.
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
-        /// <param name="addressablePath">Addressable 경로</param>
+        /// <param name="addressableName">Addressable Address (프리팹 이름)</param>
         /// <param name="parent">부모 Transform</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>UI 인스턴스</returns>
-        public async UniTask<T> GetAsync<T>(string addressablePath, Transform parent, CancellationToken ct) where T : UIBase
+        public async UniTask<T> GetAsync<T>(string addressableName, Transform parent, CancellationToken ct) where T : UIBase
         {
             Type type = typeof(T);
 
@@ -44,23 +44,26 @@ namespace Common.UI
             }
 
             // 풀에 없으면 새로 로드
-            return await LoadAsync<T>(addressablePath, parent, ct);
+            return await LoadAsync<T>(addressableName, parent, ct);
         }
 
         /// <summary>
         /// Addressable에서 UI를 로드합니다.
+        /// Addressable Address(프리팹 이름)로 자동으로 찾아줍니다.
         /// </summary>
-        private async UniTask<T> LoadAsync<T>(string addressablePath, Transform parent, CancellationToken ct) where T : UIBase
+        private async UniTask<T> LoadAsync<T>(string addressableName, Transform parent, CancellationToken ct) where T : UIBase
         {
             try
             {
-                // Addressable 로드
-                AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(addressablePath);
+                // Addressable 로드 (Address 이름으로)
+                AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(addressableName);
                 await handle.ToUniTask(cancellationToken: ct);
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    Debug.LogError($"Failed to load UI: {addressablePath}");
+                    Debug.LogError($"Failed to load UI prefab: {addressableName}");
+                    Debug.LogError("프리팹이 Addressable Groups에 추가되어 있는지 확인하세요.");
+                    Debug.LogError($"Addressable Address가 '{addressableName}'로 설정되어 있는지 확인하세요.");
                     return null;
                 }
 
@@ -83,11 +86,12 @@ namespace Common.UI
                     handles[type] = handle;
                 }
 
+                Debug.Log($"UI 로드 성공: {addressableName}");
                 return ui;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error loading UI {addressablePath}: {ex.Message}");
+                Debug.LogError($"Error loading UI {addressableName}: {ex.Message}");
                 return null;
             }
         }

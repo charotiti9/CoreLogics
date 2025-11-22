@@ -5,61 +5,71 @@ using UnityEngine.UI;
 namespace Common.UI
 {
     /// <summary>
-    /// 레이어별 Canvas 관리
-    /// 모든 Canvas는 DontDestroyOnLoad로 설정됩니다.
+    /// MainCanvas 기반 레이어별 Nested Canvas 관리
+    /// MainCanvas 하나에 레이어별 Canvas가 하위 구조로 존재합니다.
     /// </summary>
     public class UICanvas
     {
-        private readonly Dictionary<UILayer, Canvas> canvases = new Dictionary<UILayer, Canvas>();
-        private readonly Transform rootTransform;
+        private readonly Dictionary<UILayer, Canvas> layerCanvases = new Dictionary<UILayer, Canvas>();
+        private Canvas mainCanvas;
+        private Transform rootTransform;
 
         /// <summary>
         /// UICanvas를 생성합니다.
         /// </summary>
-        /// <param name="rootTransform">Canvas들의 부모 Transform</param>
+        /// <param name="rootTransform">UIManager의 Transform</param>
         public UICanvas(Transform rootTransform)
         {
             this.rootTransform = rootTransform;
         }
 
         /// <summary>
-        /// 모든 레이어의 Canvas를 초기화합니다.
+        /// MainCanvas 프리팹에서 레이어별 Canvas를 찾아서 초기화합니다.
         /// </summary>
-        public void Initialize()
+        /// <param name="mainCanvasObject">MainCanvas GameObject</param>
+        public void Initialize(GameObject mainCanvasObject = null)
         {
-            // 모든 레이어에 대해 Canvas 생성
+            if (mainCanvasObject == null)
+            {
+                Debug.LogError("MainCanvas object is null!");
+                return;
+            }
+
+            // MainCanvas의 Canvas 컴포넌트 가져오기
+            mainCanvas = mainCanvasObject.GetComponent<Canvas>();
+
+            if (mainCanvas == null)
+            {
+                Debug.LogError("Canvas component not found on MainCanvas!");
+                return;
+            }
+
+            // 레이어별 Canvas 찾기
             foreach (UILayer layer in System.Enum.GetValues(typeof(UILayer)))
             {
-                CreateCanvas(layer);
+                string layerName = layer.ToString();
+                Transform layerTransform = mainCanvasObject.transform.Find(layerName);
+
+                if (layerTransform != null)
+                {
+                    Canvas layerCanvas = layerTransform.GetComponent<Canvas>();
+
+                    if (layerCanvas != null)
+                    {
+                        layerCanvases[layer] = layerCanvas;
+                    }
+                    else
+                    {
+                        Debug.LogError($"Canvas component not found on layer {layerName}!");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Layer {layerName} not found in MainCanvas!");
+                }
             }
-        }
 
-        /// <summary>
-        /// 특정 레이어의 Canvas를 생성합니다.
-        /// </summary>
-        private void CreateCanvas(UILayer layer)
-        {
-            // Canvas GameObject 생성
-            GameObject canvasObj = new GameObject($"{layer}Canvas");
-            canvasObj.transform.SetParent(rootTransform);
-
-            // Canvas 컴포넌트 추가
-            Canvas canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = (int)layer;
-
-            // CanvasScaler 추가 (해상도 대응)
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
-
-            // GraphicRaycaster 추가 (UI 입력 처리)
-            canvasObj.AddComponent<GraphicRaycaster>();
-
-            // Dictionary에 등록
-            canvases[layer] = canvas;
+            Debug.Log($"UICanvas initialized with {layerCanvases.Count} layers");
         }
 
         /// <summary>
@@ -69,7 +79,7 @@ namespace Common.UI
         /// <returns>Canvas</returns>
         public Canvas GetCanvas(UILayer layer)
         {
-            if (canvases.TryGetValue(layer, out Canvas canvas))
+            if (layerCanvases.TryGetValue(layer, out Canvas canvas))
             {
                 return canvas;
             }

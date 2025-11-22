@@ -5,6 +5,9 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.UI;
 
 namespace Common.UI
 {
@@ -16,8 +19,14 @@ namespace Common.UI
     {
         private static UIManager instance;
 
+        // MainCanvas Addressable Address
+        private const string MAIN_CANVAS_ADDRESS = "MainCanvas";
+
+        // MainCanvas 핸들 (메모리 관리용)
+        private AsyncOperationHandle<GameObject> mainCanvasHandle;
+
         /// <summary>
-        /// 싱글톤 인스턴스
+        /// 싱글톤 인스턴스 (동기 초기화, Fallback 모드)
         /// </summary>
         public static UIManager Instance
         {
@@ -34,6 +43,24 @@ namespace Common.UI
             }
         }
 
+        /// <summary>
+        /// 비동기 초기화와 함께 인스턴스를 가져옵니다. (권장)
+        /// </summary>
+        public static async UniTask<UIManager> GetInstanceAsync(CancellationToken ct = default)
+        {
+            if (instance == null)
+            {
+                GameObject obj = new GameObject("UIManager");
+                instance = obj.AddComponent<UIManager>();
+                DontDestroyOnLoad(obj);
+
+                // 비동기 초기화
+                await instance.InitializeAsync(ct);
+            }
+
+            return instance;
+        }
+
         private UICanvas uiCanvas;
         private UIPool uiPool;
         private UIDimController dimController;
@@ -46,18 +73,21 @@ namespace Common.UI
         private bool isInitialized = false;
 
         /// <summary>
-        /// 초기화
+        /// 비동기 초기화 (권장)
         /// </summary>
-        public void Initialize()
+        public async UniTask InitializeAsync(CancellationToken ct = default)
         {
             if (isInitialized)
             {
                 return;
             }
 
+            // MainCanvas 찾기 또는 로드
+            GameObject mainCanvasObj = await FindOrCreateMainCanvasAsync(ct);
+
             // UICanvas 초기화
             uiCanvas = new UICanvas(transform);
-            uiCanvas.Initialize();
+            uiCanvas.Initialize(mainCanvasObj);
 
             // UIPool 초기화
             uiPool = new UIPool();
@@ -77,7 +107,47 @@ namespace Common.UI
 
             isInitialized = true;
 
-            Debug.Log("UIManager initialized");
+            Debug.Log("UIManager initialized asynchronously");
+        }
+
+        /// <summary>
+        /// 동기 초기화 (하위 호환용, Fallback 생성만 가능)
+        /// </summary>
+        public void Initialize()
+        {
+            if (isInitialized)
+            {
+                return;
+            }
+
+            Debug.LogWarning("Synchronous Initialize() is deprecated. Use InitializeAsync() instead.");
+
+            // 씬에서 찾거나 Fallback 생성
+            GameObject mainCanvasObj = FindExistingOrCreateFallback();
+
+            // UICanvas 초기화
+            uiCanvas = new UICanvas(transform);
+            uiCanvas.Initialize(mainCanvasObj);
+
+            // UIPool 초기화
+            uiPool = new UIPool();
+
+            // UIDimController 초기화
+            dimController = new UIDimController(uiCanvas);
+
+            // UIStack 초기화
+            uiStack = new UIStack();
+
+            // UIResolutionHandler 초기화
+            UIResolutionHandler.Initialize(transform);
+            UIResolutionHandler.OnResolutionChanged += OnResolutionChanged;
+
+            // 씬 로드 이벤트 등록
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            isInitialized = true;
+
+            Debug.Log("UIManager initialized synchronously (fallback mode)");
         }
 
         /// <summary>
@@ -127,10 +197,10 @@ namespace Common.UI
                 activeUIs[type] = ui;
                 ui.ParentCanvas = uiCanvas.GetCanvas(layer);
 
-                // Dim 표시
+                // Dim 표시 (UI Stack 지원)
                 if (useDim)
                 {
-                    await dimController.ShowDimAsync(layer, 0.7f, ct);
+                    await dimController.ShowDimAsync(ui, layer, 0.7f, ct);
                 }
 
                 // UI 표시
@@ -197,17 +267,14 @@ namespace Common.UI
                 // 풀로 반환
                 uiPool.Return(ui);
 
-                // Dim 숨김 (해당 레이어에 다른 UI가 없으면)
-                if (!HasActiveUIInLayer(layer))
+                // Dim 숨김 (UI Stack 지원)
+                if (immediate)
                 {
-                    if (immediate)
-                    {
-                        dimController.ClearDim(layer);
-                    }
-                    else
-                    {
-                        await dimController.HideDimAsync(layer, ct);
-                    }
+                    dimController.ClearDim(layer);
+                }
+                else
+                {
+                    await dimController.HideDimAsync(ui, layer, ct);
                 }
             }
             finally
@@ -314,13 +381,13 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// UIPath Attribute에서 경로를 가져옵니다.
+        /// UIPath Attribute에서 Addressable Address를 가져옵니다.
         /// </summary>
         private string GetUIPath<T>() where T : UIBase
         {
             Type type = typeof(T);
             UIPathAttribute attribute = (UIPathAttribute)Attribute.GetCustomAttribute(type, typeof(UIPathAttribute));
-            return attribute?.AddressablePath;
+            return attribute?.AddressableName;
         }
 
         /// <summary>
@@ -329,6 +396,108 @@ namespace Common.UI
         private bool HasActiveUIInLayer(UILayer layer)
         {
             return activeUIs.Values.Any(ui => ui.Layer == layer);
+        }
+
+        /// <summary>
+        /// MainCanvas를 찾거나 Addressable에서 비동기 로드합니다.
+        /// </summary>
+        private async UniTask<GameObject> FindOrCreateMainCanvasAsync(CancellationToken ct)
+        {
+            // 1. 씬에서 찾기
+            GameObject existing = GameObject.Find("MainCanvas");
+            if (existing != null)
+            {
+                existing.transform.SetParent(transform);
+                return existing;
+            }
+
+            // 2. Addressable에서 로드
+            try
+            {
+                mainCanvasHandle = Addressables.InstantiateAsync(MAIN_CANVAS_ADDRESS, transform);
+                GameObject instance = await mainCanvasHandle.ToUniTask(cancellationToken: ct);
+                instance.name = "MainCanvas";
+                return instance;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to load MainCanvas from Addressables: {ex.Message}");
+            }
+
+            // 3. 실패 시 Fallback 생성
+            Debug.LogWarning("Creating fallback MainCanvas...");
+            return CreateFallbackMainCanvas();
+        }
+
+        /// <summary>
+        /// 씬에서 MainCanvas를 찾거나 Fallback을 생성합니다. (동기)
+        /// </summary>
+        private GameObject FindExistingOrCreateFallback()
+        {
+            // 씬에서 찾기
+            GameObject existing = GameObject.Find("MainCanvas");
+            if (existing != null)
+            {
+                existing.transform.SetParent(transform);
+                return existing;
+            }
+
+            // Fallback 생성
+            Debug.LogWarning("Creating fallback MainCanvas...");
+            return CreateFallbackMainCanvas();
+        }
+
+        /// <summary>
+        /// Fallback MainCanvas 생성 (Addressable 로드 실패 시)
+        /// </summary>
+        private GameObject CreateFallbackMainCanvas()
+        {
+            GameObject mainCanvasObj = new GameObject("MainCanvas");
+            mainCanvasObj.transform.SetParent(transform);
+
+            // Main Canvas 설정
+            Canvas mainCanvas = mainCanvasObj.AddComponent<Canvas>();
+            mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            CanvasScaler scaler = mainCanvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            mainCanvasObj.AddComponent<GraphicRaycaster>();
+
+            // EventSystem 생성 (이미 존재하지 않는 경우)
+            if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+            {
+                GameObject eventSystemObj = new GameObject("EventSystem");
+                eventSystemObj.transform.SetParent(mainCanvasObj.transform);
+                eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                eventSystemObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
+            // 레이어별 Nested Canvas 생성
+            foreach (UILayer layer in System.Enum.GetValues(typeof(UILayer)))
+            {
+                GameObject layerObj = new GameObject(layer.ToString());
+                layerObj.transform.SetParent(mainCanvasObj.transform);
+
+                // RectTransform 설정 (Full Screen)
+                RectTransform rect = layerObj.AddComponent<RectTransform>();
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+
+                // Nested Canvas 설정
+                Canvas layerCanvas = layerObj.AddComponent<Canvas>();
+                layerCanvas.overrideSorting = true;
+                layerCanvas.sortingOrder = (int)layer;
+
+                // GraphicRaycaster 추가
+                layerObj.AddComponent<GraphicRaycaster>();
+            }
+
+            return mainCanvasObj;
         }
 
         private void OnDestroy()
@@ -347,6 +516,12 @@ namespace Common.UI
 
                 // 스택 정리
                 uiStack?.Clear();
+
+                // Addressable 핸들 해제
+                if (mainCanvasHandle.IsValid())
+                {
+                    Addressables.ReleaseInstance(mainCanvasHandle);
+                }
 
                 instance = null;
             }
