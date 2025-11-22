@@ -93,8 +93,6 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
         previousState = currentState;
         currentState = newState;
 
-        OnNext();
-
         // 새 상태 진입
         currentState.Enter(context);
 
@@ -102,14 +100,6 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
         OnStateChanged?.Invoke(previousState, currentState);
 
         return true;
-    }
-
-    /// <summary>
-    /// 상태 전환 시 호출되는 확장 포인트.
-    /// 파생 클래스에서 오버라이드하여 상태 전환 시 추가 로직 삽입 가능
-    /// </summary>
-    protected virtual void OnNext()
-    {
     }
 
     /// <summary>
