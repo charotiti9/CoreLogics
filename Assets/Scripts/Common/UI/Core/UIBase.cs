@@ -13,6 +13,12 @@ namespace Common.UI
         private RectTransform rectTransform;
         private bool isInitialized;
 
+        // 생명주기 관리용 CancellationTokenSource
+        private CancellationTokenSource lifecycleCts;
+
+        // 애니메이션 중첩 방지용 CancellationTokenSource
+        private CancellationTokenSource animationCts;
+
         /// <summary>
         /// UI가 속한 레이어
         /// </summary>
@@ -63,6 +69,15 @@ namespace Common.UI
         public virtual UIAnimation HideAnimation => null;
 
         /// <summary>
+        /// Unity Awake 생명주기
+        /// </summary>
+        private void Awake()
+        {
+            // 생명주기 CancellationTokenSource 생성
+            lifecycleCts = new CancellationTokenSource();
+        }
+
+        /// <summary>
         /// 최초 생성 시 1회 호출됩니다.
         /// </summary>
         /// <param name="data">초기화 데이터</param>
@@ -111,25 +126,46 @@ namespace Common.UI
         /// </summary>
         internal async UniTask ShowInternalAsync(object data, CancellationToken ct)
         {
-            // 초기화되지 않았으면 초기화
-            if (!isInitialized)
+            // 이전 애니메이션 취소 (중첩 실행 방지)
+            animationCts?.Cancel();
+            animationCts?.Dispose();
+            animationCts = new CancellationTokenSource();
+
+            // 생명주기 CTS, 외부 CT, 애니메이션 CTS를 결합
+            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct,
+                lifecycleCts.Token,
+                animationCts.Token))
             {
-                OnInitialize(data);
+                try
+                {
+                    // 초기화되지 않았으면 초기화
+                    if (!isInitialized)
+                    {
+                        OnInitialize(data);
+                    }
+
+                    gameObject.SetActive(true);
+                    IsShowing = true;
+
+                    // 커스텀 Show 로직 (애니메이션 전에 UI 데이터 설정)
+                    await OnShowAsync(linkedCts.Token);
+
+                    // 표시 애니메이션 재생 (UI 준비 완료 후)
+                    if (ShowAnimation != null)
+                    {
+                        await ShowAnimation.PlayAsync(RectTransform, linkedCts.Token);
+                    }
+
+                    // 이 시점에서 UI가 완전히 준비되어 인스턴스가 반환됨
+                }
+                catch (OperationCanceledException)
+                {
+                    // 취소된 경우 로그 출력 (정상 동작)
+                    Debug.Log($"[UIBase] {GetType().Name} Show 작업이 취소되었습니다.");
+                    throw;
+                }
             }
-
-            gameObject.SetActive(true);
-            IsShowing = true;
-
-            // 커스텀 Show 로직 (애니메이션 전에 UI 데이터 설정)
-            await OnShowAsync(ct);
-
-            // 표시 애니메이션 재생 (UI 준비 완료 후)
-            if (ShowAnimation != null)
-            {
-                await ShowAnimation.PlayAsync(RectTransform, ct);
-            }
-
-            // 이 시점에서 UI가 완전히 준비되어 인스턴스가 반환됨
         }
 
         /// <summary>
@@ -143,18 +179,39 @@ namespace Common.UI
         /// </summary>
         internal async UniTask HideInternalAsync(bool immediate, CancellationToken ct)
         {
-            IsShowing = false;
+            // 이전 애니메이션 취소 (중첩 실행 방지)
+            animationCts?.Cancel();
+            animationCts?.Dispose();
+            animationCts = new CancellationTokenSource();
 
-            // 커스텀 Hide 로직 (정리 작업)
-            await OnHideAsync(ct);
-
-            // 숨김 애니메이션 재생 (즉시 숨김이 아닌 경우)
-            if (!immediate && HideAnimation != null)
+            // 생명주기 CTS, 외부 CT, 애니메이션 CTS를 결합
+            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct,
+                lifecycleCts.Token,
+                animationCts.Token))
             {
-                await HideAnimation.PlayAsync(RectTransform, ct);
-            }
+                try
+                {
+                    IsShowing = false;
 
-            gameObject.SetActive(false);
+                    // 커스텀 Hide 로직 (정리 작업)
+                    await OnHideAsync(linkedCts.Token);
+
+                    // 숨김 애니메이션 재생 (즉시 숨김이 아닌 경우)
+                    if (!immediate && HideAnimation != null)
+                    {
+                        await HideAnimation.PlayAsync(RectTransform, linkedCts.Token);
+                    }
+
+                    gameObject.SetActive(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 취소된 경우 로그 출력 (정상 동작)
+                    Debug.Log($"[UIBase] {GetType().Name} Hide 작업이 취소되었습니다.");
+                    throw;
+                }
+            }
         }
 
         /// <summary>
@@ -181,6 +238,13 @@ namespace Common.UI
 
         private void OnDestroy()
         {
+            // 진행 중인 모든 비동기 작업 취소
+            lifecycleCts?.Cancel();
+            lifecycleCts?.Dispose();
+
+            animationCts?.Cancel();
+            animationCts?.Dispose();
+
             isInitialized = false;
         }
     }

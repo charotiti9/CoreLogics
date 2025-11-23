@@ -5,17 +5,45 @@ namespace Common.UI
 {
     /// <summary>
     /// 런타임 해상도 변경 감지 및 전파
-    /// UIManager가 초기화 시 자동으로 생성합니다.
+    /// GameFlowManager의 IUpdatable 인터페이스를 통해 중앙 관리됩니다.
+    /// MonoBehaviour를 사용하지 않는 순수 C# 클래스입니다.
     /// </summary>
-    public class UIResolutionHandler : MonoBehaviour
+    public class UIResolutionHandler : IUpdatable
     {
         private static UIResolutionHandler instance;
         private static Vector2Int currentResolution;
 
+        // 해상도 체크 간격 (0.5초마다 체크)
+        private const float CHECK_INTERVAL = 0.5f;
+        private float elapsedTime = 0f;
+
         /// <summary>
-        /// 해상도 변경 이벤트
+        /// 해상도 변경 이벤트 (인스턴스 이벤트)
+        /// Dispose() 시 자동으로 정리됩니다.
         /// </summary>
-        public static event Action<Vector2Int> OnResolutionChanged;
+        public event Action<Vector2Int> OnResolutionChangedEvent;
+
+        /// <summary>
+        /// 해상도 변경 이벤트 (static 래퍼, 하위 호환성)
+        /// 구독자는 반드시 명시적으로 해제해야 합니다.
+        /// </summary>
+        public static event Action<Vector2Int> OnResolutionChanged
+        {
+            add
+            {
+                if (instance != null)
+                {
+                    instance.OnResolutionChangedEvent += value;
+                }
+            }
+            remove
+            {
+                if (instance != null)
+                {
+                    instance.OnResolutionChangedEvent -= value;
+                }
+            }
+        }
 
         /// <summary>
         /// 현재 해상도
@@ -23,32 +51,60 @@ namespace Common.UI
         public static Vector2Int CurrentResolution => currentResolution;
 
         /// <summary>
-        /// UIResolutionHandler 인스턴스를 생성합니다.
+        /// 싱글톤 인스턴스가 살아있는지 확인
         /// </summary>
-        public static void Initialize(Transform parent)
+        public static bool IsAlive() => instance != null;
+
+        /// <summary>
+        /// Update 실행 우선순위 (낮을수록 먼저 실행)
+        /// </summary>
+        public int UpdateOrder => 0;
+
+        /// <summary>
+        /// UIResolutionHandler 인스턴스를 생성하고 GameFlowManager에 등록합니다.
+        /// </summary>
+        public static void Initialize()
         {
             if (instance != null)
             {
                 return; // 이미 생성됨
             }
 
-            GameObject obj = new GameObject("UIResolutionHandler");
-            obj.transform.SetParent(parent);
-            instance = obj.AddComponent<UIResolutionHandler>();
+            instance = new UIResolutionHandler();
 
             // 현재 해상도 초기화
             currentResolution = new Vector2Int(Screen.width, Screen.height);
+
+            // GameFlowManager에 등록
+            if (GameFlowManager.IsAlive())
+            {
+                GameFlowManager.Instance.RegisterUpdatable(instance);
+            }
+            else
+            {
+                Debug.LogWarning("[UIResolutionHandler] GameFlowManager가 없습니다. 해상도 감지가 동작하지 않습니다.");
+            }
         }
 
-        private void Update()
+        /// <summary>
+        /// GameFlowManager에서 호출되는 업데이트 메서드
+        /// 0.5초마다 해상도 변경을 확인합니다.
+        /// </summary>
+        public void OnUpdate(float deltaTime)
         {
-            CheckResolutionChange();
+            elapsedTime += deltaTime;
+
+            if (elapsedTime >= CHECK_INTERVAL)
+            {
+                elapsedTime = 0f;
+                CheckResolutionChange();
+            }
         }
 
         /// <summary>
         /// 해상도 변경 여부를 확인하고 이벤트를 발생시킵니다.
         /// </summary>
-        public static void CheckResolutionChange()
+        private void CheckResolutionChange()
         {
             Vector2Int newResolution = new Vector2Int(Screen.width, Screen.height);
 
@@ -57,19 +113,30 @@ namespace Common.UI
             {
                 currentResolution = newResolution;
 
-                // 이벤트 발생
-                OnResolutionChanged?.Invoke(currentResolution);
+                // 인스턴스 이벤트 발생
+                OnResolutionChangedEvent?.Invoke(currentResolution);
 
                 Debug.Log($"해상도 변경 감지: {currentResolution.x}x{currentResolution.y}");
             }
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// IDisposable 구현: GameFlowManager에서 등록 해제
+        /// </summary>
+        public void Dispose()
         {
             if (instance == this)
             {
+                // GameFlowManager에서 등록 해제
+                if (GameFlowManager.IsAlive())
+                {
+                    GameFlowManager.Instance.UnregisterUpdatable(this);
+                }
+
+                // 모든 이벤트 구독자 해제 (메모리 누수 방지)
+                OnResolutionChangedEvent = null;
+
                 instance = null;
-                OnResolutionChanged = null;
             }
         }
     }

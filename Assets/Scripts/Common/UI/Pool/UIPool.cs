@@ -81,10 +81,17 @@ namespace Common.UI
 
                 // 핸들 저장 (메모리 관리용)
                 Type type = typeof(T);
-                if (!handles.ContainsKey(type))
+
+                // 기존 핸들이 있으면 먼저 해제 (메모리 누수 방지)
+                if (handles.TryGetValue(type, out AsyncOperationHandle<GameObject> existingHandle))
                 {
-                    handles[type] = handle;
+                    if (existingHandle.IsValid())
+                    {
+                        Addressables.Release(existingHandle);
+                    }
                 }
+
+                handles[type] = handle;
 
                 Debug.Log($"UI 로드 성공: {addressableName}");
                 return ui;
@@ -108,19 +115,21 @@ namespace Common.UI
                 return;
             }
 
-            Type type = typeof(T);
+            // 제네릭 타입 대신 실제 런타임 타입 사용 (타입 안전성 향상)
+            Type actualType = instance.GetType();
 
             // 풀 크기 제한 확인
-            if (!pools.TryGetValue(type, out Queue<UIBase> pool))
+            if (!pools.TryGetValue(actualType, out Queue<UIBase> pool))
             {
                 pool = new Queue<UIBase>();
-                pools[type] = pool;
+                pools[actualType] = pool;
             }
 
             // 풀 크기 초과 시 파괴
             if (pool.Count >= MAX_POOL_SIZE)
             {
                 GameObject.Destroy(instance.gameObject);
+                Debug.Log($"[UIPool] 풀 크기 초과로 {actualType.Name} 인스턴스 파괴 (최대: {MAX_POOL_SIZE})");
                 return;
             }
 

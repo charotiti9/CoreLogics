@@ -5,10 +5,12 @@ namespace Common.UI
     /// <summary>
     /// UI 스택 관리 (뒤로가기 기능)
     /// PopUp 레이어 등에서 ESC 키 처리 시 사용됩니다.
+    /// List 기반으로 구현하여 Remove 연산을 효율적으로 처리합니다.
     /// </summary>
     public class UIStack
     {
-        private readonly Stack<UIBase> stack = new Stack<UIBase>();
+        // List를 Stack처럼 사용 (끝에 추가/제거)
+        private readonly List<UIBase> stack = new List<UIBase>(16);
 
         /// <summary>
         /// 스택에 있는 UI 개수
@@ -32,7 +34,7 @@ namespace Common.UI
                 return;
             }
 
-            stack.Push(ui);
+            stack.Add(ui);
         }
 
         /// <summary>
@@ -46,7 +48,10 @@ namespace Common.UI
                 return null;
             }
 
-            return stack.Pop();
+            int lastIndex = stack.Count - 1;
+            UIBase ui = stack[lastIndex];
+            stack.RemoveAt(lastIndex);
+            return ui;
         }
 
         /// <summary>
@@ -60,40 +65,22 @@ namespace Common.UI
                 return null;
             }
 
-            return stack.Peek();
+            return stack[stack.Count - 1];
         }
 
         /// <summary>
         /// 특정 UI를 스택에서 제거합니다.
+        /// List 기반이므로 임시 객체 생성 없이 직접 제거 가능합니다.
         /// </summary>
         /// <param name="ui">제거할 UI</param>
         public void Remove(UIBase ui)
         {
-            if (ui == null || stack.Count == 0)
+            if (ui == null)
             {
                 return;
             }
 
-            // Stack은 직접 제거를 지원하지 않으므로 임시 스택 사용
-            var temp = new Stack<UIBase>();
-            bool found = false;
-
-            while (stack.Count > 0)
-            {
-                var current = stack.Pop();
-                if (current == ui && !found)
-                {
-                    found = true;
-                    continue; // 제거할 UI는 다시 넣지 않음
-                }
-                temp.Push(current);
-            }
-
-            // 다시 원래 스택에 복원 (역순으로)
-            while (temp.Count > 0)
-            {
-                stack.Push(temp.Pop());
-            }
+            stack.Remove(ui);
         }
 
         /// <summary>

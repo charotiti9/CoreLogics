@@ -44,6 +44,9 @@ namespace Common.UI
                 dimUIStacks[layer] = new List<UIBase>();
             }
 
+            // null 참조 정리 (UI가 직접 파괴된 경우)
+            dimUIStacks[layer].RemoveAll(item => item == null);
+
             if (ui != null && !dimUIStacks[layer].Contains(ui))
             {
                 dimUIStacks[layer].Add(ui);
@@ -107,6 +110,10 @@ namespace Common.UI
 
             // UI Stack에서 제거
             var stack = dimUIStacks[layer];
+
+            // null 참조 정리 (UI가 직접 파괴된 경우)
+            stack.RemoveAll(item => item == null);
+
             int index = stack.IndexOf(ui);
 
             if (index != -1)
@@ -116,8 +123,18 @@ namespace Common.UI
                 // 스택에 다른 UI가 남아있으면 그 아래로 Dim 이동
                 if (stack.Count > 0)
                 {
-                    UIBase prevUI = stack[stack.Count - 1]; // 최상단 UI
-                    if (dimObjects.TryGetValue(layer, out GameObject dimObj) && dimObj != null)
+                    // 최상단 UI 찾기 (null이 아닌 것)
+                    UIBase prevUI = null;
+                    for (int i = stack.Count - 1; i >= 0; i--)
+                    {
+                        if (stack[i] != null)
+                        {
+                            prevUI = stack[i];
+                            break;
+                        }
+                    }
+
+                    if (prevUI != null && dimObjects.TryGetValue(layer, out GameObject dimObj) && dimObj != null)
                     {
                         Transform uiTransform = prevUI.transform;
                         Transform dimTransform = dimObj.transform;
@@ -132,6 +149,11 @@ namespace Common.UI
                         {
                             dimTransform.SetSiblingIndex(siblingIndex - 1);
                         }
+                    }
+                    else
+                    {
+                        // 유효한 UI가 없으면 Dim 숨김
+                        await HideDimCompletelyAsync(layer, ct);
                     }
                 }
                 else
