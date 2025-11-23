@@ -60,6 +60,16 @@ namespace Common.UI
         /// </summary>
         private void InitializeInternal(GameObject mainCanvasObj)
         {
+            // MainCanvas를 DontDestroyOnLoad로 설정
+            DontDestroyOnLoad(mainCanvasObj);
+
+            // EventSystem도 DontDestroyOnLoad로 설정
+            var eventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem != null)
+            {
+                DontDestroyOnLoad(eventSystem.gameObject);
+            }
+
             // UICanvas 초기화
             uiCanvas = new UICanvas(transform);
             uiCanvas.Initialize(mainCanvasObj);

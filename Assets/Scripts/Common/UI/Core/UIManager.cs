@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 namespace Common.UI
 {
@@ -23,6 +24,13 @@ namespace Common.UI
 
         // MainCanvas 핸들 (메모리 관리용)
         private AsyncOperationHandle<GameObject> mainCanvasHandle;
+
+        /// <summary>
+        /// UI Input Actions Asset
+        /// Inspector에서 할당하거나, 없으면 경고가 출력됩니다.
+        /// </summary>
+        [SerializeField]
+        private InputActionAsset uiInputActions;
 
         private UICanvas uiCanvas;
         private UIPool uiPool;

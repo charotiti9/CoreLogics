@@ -5,6 +5,8 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 
 namespace Common.UI
 {
@@ -101,14 +103,13 @@ namespace Common.UI
             GameObject existing = GameObject.Find("MainCanvas");
             if (existing != null)
             {
-                existing.transform.SetParent(transform);
                 return existing;
             }
 
             // 2. Addressable에서 로드
             try
             {
-                mainCanvasHandle = Addressables.InstantiateAsync(MAIN_CANVAS_ADDRESS, transform);
+                mainCanvasHandle = Addressables.InstantiateAsync(MAIN_CANVAS_ADDRESS);
                 GameObject instance = await mainCanvasHandle.ToUniTask(cancellationToken: ct);
                 instance.name = "MainCanvas";
                 return instance;
@@ -132,7 +133,6 @@ namespace Common.UI
             GameObject existing = GameObject.Find("MainCanvas");
             if (existing != null)
             {
-                existing.transform.SetParent(transform);
                 return existing;
             }
 
@@ -147,7 +147,6 @@ namespace Common.UI
         private GameObject CreateFallbackMainCanvas()
         {
             GameObject mainCanvasObj = new GameObject("MainCanvas");
-            mainCanvasObj.transform.SetParent(transform);
 
             // Main Canvas 설정
             Canvas mainCanvas = mainCanvasObj.AddComponent<Canvas>();
@@ -164,9 +163,21 @@ namespace Common.UI
             if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
             {
                 GameObject eventSystemObj = new GameObject("EventSystem");
-                eventSystemObj.transform.SetParent(mainCanvasObj.transform);
+
                 eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                eventSystemObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+
+                // InputSystemUIInputModule 추가 및 설정
+                var inputModule = eventSystemObj.AddComponent<InputSystemUIInputModule>();
+
+                // Input Actions Asset 연결
+                if (uiInputActions != null)
+                {
+                    inputModule.actionsAsset = uiInputActions;
+                }
+                else
+                {
+                    Debug.LogWarning("[UIManager] UI Input Actions Asset이 할당되지 않았습니다. UIManager Inspector에서 InputSystem_Actions를 할당하세요.");
+                }
             }
 
             // 레이어별 Nested Canvas 생성
