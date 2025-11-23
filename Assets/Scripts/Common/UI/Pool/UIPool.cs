@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
+using Core.Addressable;
 
 namespace Common.UI
 {
@@ -16,9 +15,6 @@ namespace Common.UI
     {
         // 타입별 풀 관리
         private readonly Dictionary<Type, Queue<UIBase>> pools = new Dictionary<Type, Queue<UIBase>>();
-
-        // Addressable 핸들 관리 (메모리 릭 방지)
-        private readonly Dictionary<Type, AsyncOperationHandle<GameObject>> handles = new Dictionary<Type, AsyncOperationHandle<GameObject>>();
 
         // 풀 크기 제한 (타입당 최대 개수)
         private const int MAX_POOL_SIZE = 10;
@@ -49,58 +45,32 @@ namespace Common.UI
 
         /// <summary>
         /// Addressable에서 UI를 로드합니다.
-        /// Addressable Address(프리팹 이름)로 자동으로 찾아줍니다.
+        /// AddressableManager를 통해 중앙집중식으로 관리됩니다.
         /// </summary>
         private async UniTask<T> LoadAsync<T>(string addressableName, Transform parent, CancellationToken ct) where T : UIBase
         {
-            try
+            // AddressableManager에 로딩 위임
+            GameObject prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(addressableName, ct);
+
+            if (prefab == null)
             {
-                // Addressable 로드 (Address 이름으로)
-                AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(addressableName);
-                await handle.ToUniTask(cancellationToken: ct);
-
-                if (handle.Status != AsyncOperationStatus.Succeeded)
-                {
-                    Debug.LogError($"Failed to load UI prefab: {addressableName}");
-                    Debug.LogError("프리팹이 Addressable Groups에 추가되어 있는지 확인하세요.");
-                    Debug.LogError($"Addressable Address가 '{addressableName}'로 설정되어 있는지 확인하세요.");
-                    return null;
-                }
-
-                // 인스턴스화
-                GameObject prefab = handle.Result;
-                GameObject instance = GameObject.Instantiate(prefab, parent);
-                T ui = instance.GetComponent<T>();
-
-                if (ui == null)
-                {
-                    Debug.LogError($"UI component not found: {typeof(T).Name}");
-                    GameObject.Destroy(instance);
-                    return null;
-                }
-
-                // 핸들 저장 (메모리 관리용)
-                Type type = typeof(T);
-
-                // 기존 핸들이 있으면 먼저 해제 (메모리 누수 방지)
-                if (handles.TryGetValue(type, out AsyncOperationHandle<GameObject> existingHandle))
-                {
-                    if (existingHandle.IsValid())
-                    {
-                        Addressables.Release(existingHandle);
-                    }
-                }
-
-                handles[type] = handle;
-
-                Debug.Log($"UI 로드 성공: {addressableName}");
-                return ui;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"Error loading UI {addressableName}: {ex.Message}");
+                Debug.LogError($"[UIPool] UI 프리팹 로드 실패: {addressableName}");
                 return null;
             }
+
+            // 인스턴스화
+            GameObject instance = GameObject.Instantiate(prefab, parent);
+            T ui = instance.GetComponent<T>();
+
+            if (ui == null)
+            {
+                Debug.LogError($"[UIPool] UI 컴포넌트를 찾을 수 없습니다: {typeof(T).Name}");
+                GameObject.Destroy(instance);
+                return null;
+            }
+
+            Debug.Log($"[UIPool] UI 로드 성공: {addressableName}");
+            return ui;
         }
 
         /// <summary>
@@ -160,12 +130,7 @@ namespace Common.UI
                 pools.Remove(type);
             }
 
-            // Addressable 핸들 해제
-            if (handles.TryGetValue(type, out AsyncOperationHandle<GameObject> handle))
-            {
-                Addressables.Release(handle);
-                handles.Remove(type);
-            }
+            // Addressable 핸들은 AddressableManager에서 관리됨
         }
 
         /// <summary>
@@ -187,12 +152,7 @@ namespace Common.UI
             }
             pools.Clear();
 
-            // 모든 Addressable 핸들 해제
-            foreach (var handle in handles.Values)
-            {
-                Addressables.Release(handle);
-            }
-            handles.Clear();
+            // Addressable 핸들은 AddressableManager에서 관리됨
         }
     }
 }
