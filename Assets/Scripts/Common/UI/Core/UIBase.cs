@@ -1,3 +1,4 @@
+﻿using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -159,7 +160,7 @@ namespace Common.UI
 
                     // 이 시점에서 UI가 완전히 준비되어 인스턴스가 반환됨
                 }
-                catch (OperationCanceledException)
+                catch(OperationCanceledException)
                 {
                     // 취소된 경우 로그 출력 (정상 동작)
                     Debug.Log($"[UIBase] {GetType().Name} Show 작업이 취소되었습니다.");
