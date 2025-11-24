@@ -14,6 +14,11 @@ namespace Common.UI
         private RectTransform rectTransform;
         private bool isInitialized;
 
+        /// <summary>
+        /// UI가 초기화되었는지 여부 (UIPool에서 사용)
+        /// </summary>
+        public bool IsInitialized => isInitialized;
+
         // 생명주기 관리용 CancellationTokenSource
         private CancellationTokenSource lifecycleCts;
 

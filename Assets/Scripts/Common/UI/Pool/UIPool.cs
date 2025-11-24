@@ -1,26 +1,42 @@
-using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using Core.Addressable;
+using Core.Pool;
 
 namespace Common.UI
 {
     /// <summary>
     /// UI 인스턴스 풀링 (Addressable 기반)
-    /// UI 재사용으로 생성/파괴 비용을 최소화합니다.
+    /// AddressablePool을 내부적으로 사용하여 UI를 풀링하고,
+    /// UIBase의 생명주기를 자동으로 관리합니다.
     /// </summary>
     public class UIPool
     {
-        // 타입별 풀 관리
-        private readonly Dictionary<Type, Queue<UIBase>> pools = new Dictionary<Type, Queue<UIBase>>();
+        // 내부적으로 AddressablePool 사용
+        private readonly AddressablePool<UIBase> pool;
 
-        // 풀 크기 제한 (타입당 최대 개수)
-        private const int MAX_POOL_SIZE = 10;
+        /// <summary>
+        /// UIPool 생성자
+        /// </summary>
+        /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        public UIPool(int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        {
+            pool = new AddressablePool<UIBase>("UIPool", defaultMaxSize);
+        }
+
+        /// <summary>
+        /// 특정 UI 타입의 최대 풀 크기를 설정합니다.
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        /// <param name="maxSize">최대 풀 크기</param>
+        public void SetPoolSize<T>(int maxSize) where T : UIBase
+        {
+            pool.SetPoolSize<T>(maxSize);
+        }
 
         /// <summary>
         /// 풀에서 UI를 가져오거나 새로 생성합니다.
+        /// UI 생명주기를 자동으로 관리합니다 (Initialize).
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
         /// <param name="addressableName">Addressable Address (프리팹 이름)</param>
@@ -29,83 +45,66 @@ namespace Common.UI
         /// <returns>UI 인스턴스</returns>
         public async UniTask<T> GetAsync<T>(string addressableName, Transform parent, CancellationToken ct) where T : UIBase
         {
-            Type type = typeof(T);
-
-            // 풀에서 가져오기 시도
-            if (pools.TryGetValue(type, out Queue<UIBase> pool) && pool.Count > 0)
-            {
-                UIBase ui = pool.Dequeue();
-                ui.transform.SetParent(parent, false);
-                return ui as T;
-            }
-
-            // 풀에 없으면 새로 로드
-            return await LoadAsync<T>(addressableName, parent, ct);
-        }
-
-        /// <summary>
-        /// Addressable에서 UI를 로드합니다.
-        /// AddressableManager를 통해 중앙집중식으로 관리됩니다.
-        /// </summary>
-        private async UniTask<T> LoadAsync<T>(string addressableName, Transform parent, CancellationToken ct) where T : UIBase
-        {
-            // AddressableManager에 로딩 위임
-            GameObject prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(addressableName, ct);
-
-            if (prefab == null)
-            {
-                Debug.LogError($"[UIPool] UI 프리팹 로드 실패: {addressableName}");
-                return null;
-            }
-
-            // 인스턴스화
-            GameObject instance = GameObject.Instantiate(prefab, parent);
-            T ui = instance.GetComponent<T>();
+            // AddressablePool에서 가져오기
+            T ui = await pool.GetAsync<T>(addressableName, parent, ct);
 
             if (ui == null)
             {
-                Debug.LogError($"[UIPool] UI 컴포넌트를 찾을 수 없습니다: {typeof(T).Name}");
-                GameObject.Destroy(instance);
                 return null;
             }
 
-            Debug.Log($"[UIPool] UI 로드 성공: {addressableName}");
+            // UI 생명주기: 초기화 (최초 1회만)
+            if (!ui.IsInitialized)
+            {
+                ui.OnInitialize(null);
+            }
+
+            Debug.Log($"[UIPool] UI 가져오기 성공: {typeof(T).Name}");
             return ui;
         }
 
         /// <summary>
         /// UI를 풀로 반환합니다.
+        /// UI 생명주기를 자동으로 관리합니다 (Hide).
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
         /// <param name="instance">반환할 UI 인스턴스</param>
-        public void Return<T>(T instance) where T : UIBase
+        public async void Return<T>(T instance) where T : UIBase
         {
             if (instance == null)
             {
                 return;
             }
 
-            // 제네릭 타입 대신 실제 런타임 타입 사용 (타입 안전성 향상)
-            Type actualType = instance.GetType();
-
-            // 풀 크기 제한 확인
-            if (!pools.TryGetValue(actualType, out Queue<UIBase> pool))
+            // UI 생명주기: Hide (즉시 숨김)
+            if (instance.IsShowing)
             {
-                pool = new Queue<UIBase>();
-                pools[actualType] = pool;
+                try
+                {
+                    await instance.HideInternalAsync(immediate: true, CancellationToken.None);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"[UIPool] Hide 중 예외 발생: {ex.Message}");
+                }
             }
 
-            // 풀 크기 초과 시 파괴
-            if (pool.Count >= MAX_POOL_SIZE)
-            {
-                GameObject.Destroy(instance.gameObject);
-                Debug.Log($"[UIPool] 풀 크기 초과로 {actualType.Name} 인스턴스 파괴 (최대: {MAX_POOL_SIZE})");
-                return;
-            }
+            // AddressablePool로 반환
+            pool.Return(instance);
 
-            // 비활성화 후 풀에 추가
-            instance.gameObject.SetActive(false);
-            pool.Enqueue(instance);
+            Debug.Log($"[UIPool] UI 반환: {typeof(T).Name}");
+        }
+
+        /// <summary>
+        /// 특정 UI 타입의 인스턴스를 미리 로드하여 풀에 채웁니다.
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        /// <param name="addressableName">Addressable Address</param>
+        /// <param name="count">프리로드할 개수</param>
+        /// <param name="ct">CancellationToken</param>
+        public async UniTask PreloadAsync<T>(string addressableName, int count, CancellationToken ct) where T : UIBase
+        {
+            await pool.PreloadAsync<T>(addressableName, count, ct);
         }
 
         /// <summary>
@@ -114,23 +113,7 @@ namespace Common.UI
         /// <typeparam name="T">UI 타입</typeparam>
         public void ClearType<T>() where T : UIBase
         {
-            Type type = typeof(T);
-
-            // 풀의 모든 인스턴스 파괴
-            if (pools.TryGetValue(type, out Queue<UIBase> pool))
-            {
-                while (pool.Count > 0)
-                {
-                    UIBase ui = pool.Dequeue();
-                    if (ui != null)
-                    {
-                        GameObject.Destroy(ui.gameObject);
-                    }
-                }
-                pools.Remove(type);
-            }
-
-            // Addressable 핸들은 AddressableManager에서 관리됨
+            pool.ClearType<T>();
         }
 
         /// <summary>
@@ -138,21 +121,39 @@ namespace Common.UI
         /// </summary>
         public void Clear()
         {
-            // 모든 인스턴스 파괴
-            foreach (var pool in pools.Values)
-            {
-                while (pool.Count > 0)
-                {
-                    UIBase ui = pool.Dequeue();
-                    if (ui != null)
-                    {
-                        GameObject.Destroy(ui.gameObject);
-                    }
-                }
-            }
-            pools.Clear();
+            pool.Clear();
+        }
 
-            // Addressable 핸들은 AddressableManager에서 관리됨
+        /// <summary>
+        /// 특정 타입의 풀 개수를 반환합니다.
+        /// </summary>
+        public int GetPoolCount<T>() where T : UIBase
+        {
+            return pool.GetPoolCount<T>();
+        }
+
+        /// <summary>
+        /// 활성 인스턴스 개수를 반환합니다.
+        /// </summary>
+        public int GetActiveCount()
+        {
+            return pool.GetActiveCount();
+        }
+
+        /// <summary>
+        /// 디버그 정보를 출력합니다.
+        /// </summary>
+        public void PrintDebugInfo()
+        {
+            pool.PrintDebugInfo();
+        }
+
+        /// <summary>
+        /// 리소스를 정리합니다.
+        /// </summary>
+        public void Dispose()
+        {
+            pool.Dispose();
         }
     }
 }

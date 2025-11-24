@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -73,6 +73,7 @@ namespace Core.Addressable
         /// <returns>로드된 리소스</returns>
         public async UniTask<T> LoadAssetAsync<T>(string address, CancellationToken ct = default) where T : UnityEngine.Object
         {
+            Debug.Log($"[AddressableManager] 로드 시도: {address}");
             if (string.IsNullOrEmpty(address))
             {
                 Debug.LogError("[AddressableManager] Address가 비어있습니다.");
@@ -99,18 +100,35 @@ namespace Core.Addressable
             if (loadingTasks.TryGetValue(address, out var loadingTask))
             {
                 Debug.Log($"[AddressableManager] 로딩 중인 작업 대기: {address}");
+
+                // 이미 로딩 중이면 완료될 때까지 대기
                 var result = await loadingTask;
+
+                // 로드 완료 후 다시 확인 (이미 loadHandles에 저장되어 있음)
+                if (loadHandles.TryGetValue(address, out var handle))
+                {
+                    handle.ReferenceCount++;
+                    Debug.Log($"[AddressableManager] 중복 로드 방지 후 참조 증가: {address} (RefCount: {handle.ReferenceCount})");
+                    return handle.Handle.Result as T;
+                }
+
                 return result as T;
             }
 
-            // 3. 새로 로드
-            var task = LoadAssetInternalAsync<T>(address, ct);
-            loadingTasks[address] = task.ContinueWith(obj => obj as UnityEngine.Object);
+            // 3. 새로 로드 (Memoization 패턴)
+            var taskCompletionSource = new UniTaskCompletionSource<UnityEngine.Object>();
+            loadingTasks[address] = taskCompletionSource.Task;
 
             try
             {
-                var asset = await task;
+                var asset = await LoadAssetInternalAsync<T>(address, ct);
+                taskCompletionSource.TrySetResult(asset);
                 return asset;
+            }
+            catch (Exception ex)
+            {
+                taskCompletionSource.TrySetException(ex);
+                throw;
             }
             finally
             {
