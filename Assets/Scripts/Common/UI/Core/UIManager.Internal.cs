@@ -1,5 +1,5 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -70,7 +70,14 @@ namespace Common.UI
         /// </summary>
         private bool HasActiveUIInLayer(UILayer layer)
         {
-            return activeUIs.Values.Any(ui => ui != null && ui.Layer == layer);
+            foreach (var ui in activeUIs.Values)
+            {
+                if (ui != null && ui.Layer == layer)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -79,9 +86,14 @@ namespace Common.UI
         /// </summary>
         private void CleanupNullReferences()
         {
-            var keysToRemove = activeUIs.Where(pair => pair.Value == null)
-                                         .Select(pair => pair.Key)
-                                         .ToList();
+            var keysToRemove = new List<Type>();
+            foreach (var pair in activeUIs)
+            {
+                if (pair.Value == null)
+                {
+                    keysToRemove.Add(pair.Key);
+                }
+            }
 
             if (keysToRemove.Count > 0)
             {

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -105,9 +104,14 @@ namespace Common.UI
             CleanupNullReferences();
 
             // DestroyOnSceneChange가 true인 UI만 제거
-            List<UIBase> uisToRemove = activeUIs.Values
-                .Where(ui => ui != null && ui.DestroyOnSceneChange)
-                .ToList();
+            List<UIBase> uisToRemove = new List<UIBase>();
+            foreach (var ui in activeUIs.Values)
+            {
+                if (ui != null && ui.DestroyOnSceneChange)
+                {
+                    uisToRemove.Add(ui);
+                }
+            }
 
             foreach (var ui in uisToRemove)
             {

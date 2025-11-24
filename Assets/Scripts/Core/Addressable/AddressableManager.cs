@@ -1,63 +1,46 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Core.Addressable.Tracker;
+using Core.Addressable.Debugging;
 
 namespace Core.Addressable
 {
     /// <summary>
     /// Addressable 리소스 로딩을 중앙에서 관리하는 싱글톤
     /// 참조 카운팅, 중복 로드 방지, 인스턴스 추적 등 고급 기능 제공
+    /// Facade 패턴을 사용하여 서브시스템을 조합합니다.
     /// </summary>
     public class AddressableManager : LazyMonoSingleton<AddressableManager>
     {
-        #region 내부 클래스
+        #region 필드
 
-        /// <summary>
-        /// 에셋 핸들 정보 (참조 카운팅 포함)
-        /// </summary>
-        private class AssetHandle
-        {
-            public AsyncOperationHandle Handle;
-            public int ReferenceCount;
-            public string Address;
-            public Type AssetType;
-
-            public AssetHandle(AsyncOperationHandle handle, string address, Type assetType)
-            {
-                Handle = handle;
-                ReferenceCount = 1;
-                Address = address;
-                AssetType = assetType;
-            }
-        }
-
-        /// <summary>
-        /// 로드된 에셋 정보 (디버깅용)
-        /// </summary>
-        public class LoadedAssetInfo
-        {
-            public string Address { get; set; }
-            public int ReferenceCount { get; set; }
-            public Type AssetType { get; set; }
-        }
+        // 서브시스템
+        private AssetReferenceTracker referenceTracker;
+        private AssetLoadCache loadCache;
+        private InstanceTracker instanceTracker;
+        private AddressableDebugger debugger;
 
         #endregion
 
-        #region 필드
+        #region 초기화
 
-        // 로드된 핸들 추적 (참조 카운팅)
-        private readonly Dictionary<string, AssetHandle> loadHandles = new Dictionary<string, AssetHandle>();
+        protected override void Awake()
+        {
+            base.Awake();
 
-        // 로딩 중인 작업 캐시 (중복 로드 방지)
-        private readonly Dictionary<string, UniTask<UnityEngine.Object>> loadingTasks = new Dictionary<string, UniTask<UnityEngine.Object>>();
+            // 서브시스템 초기화
+            referenceTracker = new AssetReferenceTracker();
+            loadCache = new AssetLoadCache();
+            instanceTracker = new InstanceTracker();
+            debugger = new AddressableDebugger(referenceTracker, loadCache, instanceTracker);
 
-        // 인스턴스화된 오브젝트 추적
-        private readonly Dictionary<GameObject, string> instantiatedObjects = new Dictionary<GameObject, string>();
+            UnityEngine.Debug.Log("[AddressableManager] 초기화 완료");
+        }
 
         #endregion
 
@@ -73,51 +56,38 @@ namespace Core.Addressable
         /// <returns>로드된 리소스</returns>
         public async UniTask<T> LoadAssetAsync<T>(string address, CancellationToken ct = default) where T : UnityEngine.Object
         {
-            Debug.Log($"[AddressableManager] 로드 시도: {address}");
+            UnityEngine.Debug.Log($"[AddressableManager] 로드 시도: {address}");
             if (string.IsNullOrEmpty(address))
             {
-                Debug.LogError("[AddressableManager] Address가 비어있습니다.");
+                UnityEngine.Debug.LogError("[AddressableManager] Address가 비어있습니다.");
                 return null;
             }
 
             // 1. 이미 로드된 경우 참조 카운트 증가 후 반환
-            if (loadHandles.TryGetValue(address, out var existingHandle))
+            if (referenceTracker.TryGetHandle(address, out var existingHandle))
             {
-                if (existingHandle.Handle.IsValid() && existingHandle.Handle.Status == AsyncOperationStatus.Succeeded)
-                {
-                    existingHandle.ReferenceCount++;
-                    Debug.Log($"[AddressableManager] 리소스 재사용: {address} (RefCount: {existingHandle.ReferenceCount})");
-                    return existingHandle.Handle.Result as T;
-                }
-                else
-                {
-                    // 유효하지 않은 핸들 제거
-                    loadHandles.Remove(address);
-                }
+                referenceTracker.IncreaseReference(address);
+                UnityEngine.Debug.Log($"[AddressableManager] 리소스 재사용: {address}");
+                return existingHandle.Result as T;
             }
 
             // 2. 로딩 중인 작업이 있으면 대기 (중복 로드 방지)
-            if (loadingTasks.TryGetValue(address, out var loadingTask))
+            if (loadCache.TryGetLoadingTask(address, out var loadingTask))
             {
-                Debug.Log($"[AddressableManager] 로딩 중인 작업 대기: {address}");
+                UnityEngine.Debug.Log($"[AddressableManager] 로딩 중인 작업 대기: {address}");
 
                 // 이미 로딩 중이면 완료될 때까지 대기
                 var result = await loadingTask;
 
-                // 로드 완료 후 다시 확인 (이미 loadHandles에 저장되어 있음)
-                if (loadHandles.TryGetValue(address, out var handle))
-                {
-                    handle.ReferenceCount++;
-                    Debug.Log($"[AddressableManager] 중복 로드 방지 후 참조 증가: {address} (RefCount: {handle.ReferenceCount})");
-                    return handle.Handle.Result as T;
-                }
-
+                // 로드 완료 후 참조 증가
+                referenceTracker.IncreaseReference(address);
+                UnityEngine.Debug.Log($"[AddressableManager] 중복 로드 방지 후 참조 증가: {address}");
                 return result as T;
             }
 
             // 3. 새로 로드 (Memoization 패턴)
             var taskCompletionSource = new UniTaskCompletionSource<UnityEngine.Object>();
-            loadingTasks[address] = taskCompletionSource.Task;
+            loadCache.RegisterLoadingTask(address, taskCompletionSource.Task);
 
             try
             {
@@ -133,7 +103,7 @@ namespace Core.Addressable
             finally
             {
                 // 로딩 완료 후 캐시에서 제거
-                loadingTasks.Remove(address);
+                loadCache.CompleteLoadingTask(address);
             }
         }
 
@@ -149,22 +119,21 @@ namespace Core.Addressable
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    Debug.LogError($"[AddressableManager] 리소스 로드 실패: {address}");
-                    Debug.LogError("Addressable Groups에 추가되어 있는지 확인하세요.");
-                    Debug.LogError($"Address가 '{address}'로 설정되어 있는지 확인하세요.");
+                    UnityEngine.Debug.LogError($"[AddressableManager] 리소스 로드 실패: {address}");
+                    UnityEngine.Debug.LogError("Addressable Groups에 추가되어 있는지 확인하세요.");
+                    UnityEngine.Debug.LogError($"Address가 '{address}'로 설정되어 있는지 확인하세요.");
                     return null;
                 }
 
                 // 핸들 저장 (참조 카운트 1로 시작)
-                var assetHandle = new AssetHandle(handle, address, typeof(T));
-                loadHandles[address] = assetHandle;
+                referenceTracker.AddReference(address, handle, typeof(T));
 
-                Debug.Log($"[AddressableManager] 리소스 로드 성공: {address} (RefCount: 1)");
+                UnityEngine.Debug.Log($"[AddressableManager] 리소스 로드 성공: {address}");
                 return handle.Result;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[AddressableManager] 로드 중 예외 발생: {address}\n{ex.Message}");
+                UnityEngine.Debug.LogError($"[AddressableManager] 로드 중 예외 발생: {address}\n{ex.Message}");
                 return null;
             }
         }
@@ -180,23 +149,16 @@ namespace Core.Addressable
         {
             if (string.IsNullOrEmpty(label))
             {
-                Debug.LogError("[AddressableManager] Label이 비어있습니다.");
+                UnityEngine.Debug.LogError("[AddressableManager] Label이 비어있습니다.");
                 return null;
             }
 
             // 이미 로드된 경우 참조 카운트 증가
-            if (loadHandles.TryGetValue(label, out var existingHandle))
+            if (referenceTracker.TryGetHandle(label, out var existingHandle))
             {
-                if (existingHandle.Handle.IsValid() && existingHandle.Handle.Status == AsyncOperationStatus.Succeeded)
-                {
-                    existingHandle.ReferenceCount++;
-                    Debug.Log($"[AddressableManager] 라벨 리소스 재사용: {label} (RefCount: {existingHandle.ReferenceCount})");
-                    return existingHandle.Handle.Result as IList<T>;
-                }
-                else
-                {
-                    loadHandles.Remove(label);
-                }
+                referenceTracker.IncreaseReference(label);
+                UnityEngine.Debug.Log($"[AddressableManager] 라벨 리소스 재사용: {label}");
+                return existingHandle.Result as IList<T>;
             }
 
             try
@@ -206,21 +168,20 @@ namespace Core.Addressable
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    Debug.LogError($"[AddressableManager] 라벨 리소스 로드 실패: {label}");
-                    Debug.LogError($"Label '{label}'이 Addressable Groups에 설정되어 있는지 확인하세요.");
+                    UnityEngine.Debug.LogError($"[AddressableManager] 라벨 리소스 로드 실패: {label}");
+                    UnityEngine.Debug.LogError($"Label '{label}'이 Addressable Groups에 설정되어 있는지 확인하세요.");
                     return null;
                 }
 
                 // 핸들 저장
-                var assetHandle = new AssetHandle(handle, label, typeof(T));
-                loadHandles[label] = assetHandle;
+                referenceTracker.AddReference(label, handle, typeof(T));
 
-                Debug.Log($"[AddressableManager] 라벨 리소스 로드 성공: {label} (개수: {handle.Result.Count}, RefCount: 1)");
+                UnityEngine.Debug.Log($"[AddressableManager] 라벨 리소스 로드 성공: {label} (개수: {handle.Result.Count})");
                 return handle.Result;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[AddressableManager] 라벨 로드 중 예외 발생: {label}\n{ex.Message}");
+                UnityEngine.Debug.LogError($"[AddressableManager] 라벨 로드 중 예외 발생: {label}\n{ex.Message}");
                 return null;
             }
         }
@@ -232,32 +193,7 @@ namespace Core.Addressable
         /// <param name="address">해제할 Addressable Address</param>
         public void Release(string address)
         {
-            if (string.IsNullOrEmpty(address))
-            {
-                return;
-            }
-
-            if (loadHandles.TryGetValue(address, out var assetHandle))
-            {
-                assetHandle.ReferenceCount--;
-
-                Debug.Log($"[AddressableManager] 참조 카운트 감소: {address} (RefCount: {assetHandle.ReferenceCount})");
-
-                // 참조 카운트가 0이 되면 실제 해제
-                if (assetHandle.ReferenceCount <= 0)
-                {
-                    if (assetHandle.Handle.IsValid())
-                    {
-                        Addressables.Release(assetHandle.Handle);
-                        Debug.Log($"[AddressableManager] 리소스 실제 해제: {address}");
-                    }
-                    loadHandles.Remove(address);
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"[AddressableManager] 해제할 리소스를 찾을 수 없습니다: {address}");
-            }
+            referenceTracker.DecreaseReference(address);
         }
 
         /// <summary>
@@ -266,21 +202,10 @@ namespace Core.Addressable
         /// </summary>
         public void ReleaseAll()
         {
-            int count = 0;
+            int count = referenceTracker.ReleaseAll();
+            loadCache.Clear();
 
-            foreach (var assetHandle in loadHandles.Values)
-            {
-                if (assetHandle.Handle.IsValid())
-                {
-                    Addressables.Release(assetHandle.Handle);
-                    count++;
-                }
-            }
-
-            loadHandles.Clear();
-            loadingTasks.Clear();
-
-            Debug.Log($"[AddressableManager] 모든 리소스 강제 해제 완료 (개수: {count})");
+            UnityEngine.Debug.Log($"[AddressableManager] 모든 리소스 강제 해제 완료 (개수: {count})");
         }
 
         #endregion
@@ -307,9 +232,9 @@ namespace Core.Addressable
             GameObject instance = UnityEngine.Object.Instantiate(prefab, parent);
 
             // 인스턴스 추적
-            instantiatedObjects[instance] = address;
+            instanceTracker.TrackInstance(instance, address);
 
-            Debug.Log($"[AddressableManager] 인스턴스 생성 및 추적: {address}");
+            UnityEngine.Debug.Log($"[AddressableManager] 인스턴스 생성 및 추적: {address}");
             return instance;
         }
 
@@ -325,22 +250,22 @@ namespace Core.Addressable
                 return;
             }
 
-            if (instantiatedObjects.TryGetValue(instance, out var address))
+            if (instanceTracker.TryGetAddress(instance, out var address))
             {
                 // GameObject 파괴
                 UnityEngine.Object.Destroy(instance);
 
                 // 추적에서 제거
-                instantiatedObjects.Remove(instance);
+                instanceTracker.UntrackInstance(instance);
 
                 // 리소스 참조 카운트 감소
-                Release(address);
+                referenceTracker.DecreaseReference(address);
 
-                Debug.Log($"[AddressableManager] 인스턴스 해제: {address}");
+                UnityEngine.Debug.Log($"[AddressableManager] 인스턴스 해제: {address}");
             }
             else
             {
-                Debug.LogWarning($"[AddressableManager] 추적되지 않은 인스턴스입니다. 직접 파괴합니다.");
+                UnityEngine.Debug.LogWarning($"[AddressableManager] 추적되지 않은 인스턴스입니다. 직접 파괴합니다.");
                 UnityEngine.Object.Destroy(instance);
             }
         }
@@ -350,14 +275,14 @@ namespace Core.Addressable
         /// </summary>
         public void ReleaseAllInstances()
         {
-            var instances = instantiatedObjects.Keys.ToList();
+            var instances = instanceTracker.GetAllInstances();
 
             foreach (var instance in instances)
             {
                 ReleaseInstance(instance);
             }
 
-            Debug.Log($"[AddressableManager] 모든 인스턴스 해제 완료 (개수: {instances.Count})");
+            UnityEngine.Debug.Log($"[AddressableManager] 모든 인스턴스 해제 완료 (개수: {instances.Count})");
         }
 
         #endregion
@@ -371,10 +296,16 @@ namespace Core.Addressable
         /// <param name="ct">CancellationToken</param>
         public async UniTask PreloadAsync(IEnumerable<string> addresses, CancellationToken ct = default)
         {
-            var tasks = addresses.Select(address => LoadAssetAsync<UnityEngine.Object>(address, ct));
-            await UniTask.WhenAll(tasks);
+            var taskList = new List<UniTask>();
+            int count = 0;
+            foreach (var address in addresses)
+            {
+                taskList.Add(LoadAssetAsync<UnityEngine.Object>(address, ct));
+                count++;
+            }
+            await UniTask.WhenAll(taskList);
 
-            Debug.Log($"[AddressableManager] 프리로드 완료 (개수: {addresses.Count()})");
+            UnityEngine.Debug.Log($"[AddressableManager] 프리로드 완료 (개수: {count})");
         }
 
         /// <summary>
@@ -386,7 +317,7 @@ namespace Core.Addressable
         {
             await LoadAssetsAsync<UnityEngine.Object>(label, ct);
 
-            Debug.Log($"[AddressableManager] 라벨 프리로드 완료: {label}");
+            UnityEngine.Debug.Log($"[AddressableManager] 라벨 프리로드 완료: {label}");
         }
 
         #endregion
@@ -399,12 +330,7 @@ namespace Core.Addressable
         /// <returns>로드된 리소스 정보 리스트</returns>
         public IReadOnlyList<LoadedAssetInfo> GetLoadedAssets()
         {
-            return loadHandles.Values.Select(handle => new LoadedAssetInfo
-            {
-                Address = handle.Address,
-                ReferenceCount = handle.ReferenceCount,
-                AssetType = handle.AssetType
-            }).ToList();
+            return debugger.GetLoadedAssets();
         }
 
         /// <summary>
@@ -412,7 +338,7 @@ namespace Core.Addressable
         /// </summary>
         public int GetLoadedCount()
         {
-            return loadHandles.Count;
+            return debugger.GetLoadedCount();
         }
 
         /// <summary>
@@ -420,7 +346,7 @@ namespace Core.Addressable
         /// </summary>
         public int GetInstanceCount()
         {
-            return instantiatedObjects.Count;
+            return debugger.GetInstanceCount();
         }
 
         /// <summary>
@@ -428,30 +354,7 @@ namespace Core.Addressable
         /// </summary>
         public void PrintDebugInfo()
         {
-            Debug.Log("=== AddressableManager 디버그 정보 ===");
-            Debug.Log($"로드된 리소스: {loadHandles.Count}개");
-            Debug.Log($"추적 중인 인스턴스: {instantiatedObjects.Count}개");
-            Debug.Log($"로딩 중인 작업: {loadingTasks.Count}개");
-
-            if (loadHandles.Count > 0)
-            {
-                Debug.Log("\n[로드된 리소스 목록]");
-                foreach (var handle in loadHandles.Values)
-                {
-                    Debug.Log($"- {handle.Address} | Type: {handle.AssetType.Name} | RefCount: {handle.ReferenceCount}");
-                }
-            }
-
-            if (instantiatedObjects.Count > 0)
-            {
-                Debug.Log("\n[추적 중인 인스턴스 목록]");
-                foreach (var pair in instantiatedObjects)
-                {
-                    Debug.Log($"- {pair.Key.name} | Address: {pair.Value}");
-                }
-            }
-
-            Debug.Log("=====================================");
+            debugger.PrintDebugInfo();
         }
 
         #endregion

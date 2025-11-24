@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -143,7 +142,14 @@ namespace Common.UI
         /// <param name="immediate">즉시 숨김 여부</param>
         public void HideAll(UILayer layer, bool immediate = false)
         {
-            List<UIBase> uisInLayer = activeUIs.Values.Where(ui => ui.Layer == layer).ToList();
+            List<UIBase> uisInLayer = new List<UIBase>();
+            foreach (var ui in activeUIs.Values)
+            {
+                if (ui.Layer == layer)
+                {
+                    uisInLayer.Add(ui);
+                }
+            }
 
             foreach (var ui in uisInLayer)
             {
