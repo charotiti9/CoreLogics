@@ -1,6 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using static Core.Pool.PoolLogger;
 using Core.Pool;
 
 namespace Common.UI
@@ -59,7 +60,7 @@ namespace Common.UI
                 ui.OnInitialize(null);
             }
 
-            Debug.Log($"[UIPool] UI 가져오기 성공: {typeof(T).Name}");
+            Log($"[UIPool] UI 가져오기 성공: {typeof(T).Name}");
             return ui;
         }
 
@@ -85,14 +86,14 @@ namespace Common.UI
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogWarning($"[UIPool] Hide 중 예외 발생: {ex.Message}");
+                    LogWarning($"[UIPool] Hide 중 예외 발생: {ex.Message}");
                 }
             }
 
             // AddressablePool로 반환
             pool.Return(instance);
 
-            Debug.Log($"[UIPool] UI 반환: {typeof(T).Name}");
+            Log($"[UIPool] UI 반환: {typeof(T).Name}");
         }
 
         /// <summary>

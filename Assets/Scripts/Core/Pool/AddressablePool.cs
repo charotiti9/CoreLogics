@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Core.Addressable;
+using static Core.Pool.PoolLogger;
 
 namespace Core.Pool
 {
@@ -33,6 +34,15 @@ namespace Core.Pool
             }
         }
 
+        /// <summary>
+        /// 제네릭 타입 캐싱 (typeof() 호출 비용 절감)
+        /// 제네릭 정적 클래스는 타입별로 한 번만 생성되므로 캐싱에 최적화
+        /// </summary>
+        private static class TypeCache<TComponent> where TComponent : T
+        {
+            public static readonly Type Type = typeof(TComponent);
+        }
+
         #endregion
 
         #region 필드
@@ -52,6 +62,12 @@ namespace Core.Pool
 
         // 풀 이름
         private readonly string poolName;
+
+        // 프리팹 캐시 (Address → 프리팹) - 중복 로드 방지
+        private readonly Dictionary<string, GameObject> prefabCache = new Dictionary<string, GameObject>();
+
+        // Address별 참조 카운트 (풀이 관리하는 프리팹의 참조)
+        private readonly Dictionary<string, int> addressReferenceCounts = new Dictionary<string, int>();
 
         #endregion
 
@@ -73,7 +89,7 @@ namespace Core.Pool
             GameObject.DontDestroyOnLoad(container);
             poolContainer = container.transform;
 
-            Debug.Log($"[{this.poolName}] 풀 생성됨 (기본 최대 크기: {defaultMaxSize})");
+            Log($"[{this.poolName}] 풀 생성됨 (기본 최대 크기: {defaultMaxSize})");
         }
 
         #endregion
@@ -87,10 +103,10 @@ namespace Core.Pool
         /// <param name="maxSize">최대 풀 크기</param>
         public void SetPoolSize<TComponent>(int maxSize) where TComponent : T
         {
-            Type type = typeof(TComponent);
+            Type type = TypeCache<TComponent>.Type;
             maxPoolSizes[type] = maxSize;
 
-            Debug.Log($"[{poolName}] {type.Name} 풀 크기 설정: {maxSize}");
+            Log($"[{poolName}] {type.Name} 풀 크기 설정: {maxSize}");
         }
 
         /// <summary>
@@ -116,7 +132,8 @@ namespace Core.Pool
         /// <returns>Component 인스턴스</returns>
         public async UniTask<TComponent> GetAsync<TComponent>(string address, Transform parent, CancellationToken ct) where TComponent : T
         {
-            Type type = typeof(TComponent);
+            // 타입 캐싱 사용 (typeof() 호출 비용 절감)
+            Type type = TypeCache<TComponent>.Type;
 
             // 1. 풀에서 재사용 시도
             if (pools.TryGetValue(type, out var pool) && pool.Count > 0)
@@ -125,7 +142,13 @@ namespace Core.Pool
                 pooledInstance.Component.transform.SetParent(parent, false);
                 pooledInstance.Component.gameObject.SetActive(true);
 
-                Debug.Log($"[{poolName}] 재사용: {type.Name} (풀 남음: {pool.Count})");
+                // IPoolable 인터페이스 지원: OnGetFromPool 호출
+                if (pooledInstance.Component is IPoolable poolable)
+                {
+                    poolable.OnGetFromPool();
+                }
+
+                Log($"[{poolName}] 재사용: {type.Name} (풀 남음: {pool.Count})");
                 return pooledInstance.Component as TComponent;
             }
 
@@ -135,18 +158,36 @@ namespace Core.Pool
 
         /// <summary>
         /// 새로운 인스턴스를 Addressable에서 로드합니다.
+        /// 프리팹은 캐시되어 중복 로드를 방지합니다.
         /// </summary>
         private async UniTask<TComponent> LoadNewAsync<TComponent>(string address, Transform parent, CancellationToken ct) where TComponent : T
         {
             try
             {
-                // AddressableManager로 프리팹 로드
-                GameObject prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct);
+                // 프리팹 캐시 확인
+                GameObject prefab;
 
-                if (prefab == null)
+                if (prefabCache.TryGetValue(address, out prefab))
                 {
-                    Debug.LogError($"[{poolName}] 로드 실패: {address}");
-                    return null;
+                    // 캐시된 프리팹 사용
+                    Log($"[{poolName}] 캐시된 프리팹 사용: {address}");
+                }
+                else
+                {
+                    // AddressableManager로 프리팹 로드 (최초 1회만)
+                    prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct);
+
+                    if (prefab == null)
+                    {
+                        LogError($"[{poolName}] 로드 실패: {address}");
+                        return null;
+                    }
+
+                    // 프리팹 캐시에 저장
+                    prefabCache[address] = prefab;
+                    addressReferenceCounts[address] = 0;
+
+                    Log($"[{poolName}] 프리팹 로드 및 캐시: {address}");
                 }
 
                 // 인스턴스 생성
@@ -155,28 +196,36 @@ namespace Core.Pool
 
                 if (component == null)
                 {
-                    Debug.LogError($"[{poolName}] Component 없음: {typeof(TComponent).Name} (GameObject: {instance.name})");
+                    Type type = TypeCache<TComponent>.Type;
+                    LogError($"[{poolName}] Component 없음: {type.Name} (GameObject: {instance.name})");
                     GameObject.Destroy(instance);
-
-                    // 로드한 에셋 해제
-                    AddressableManager.Instance.Release(address);
                     return null;
                 }
 
                 // Address 추적 (메모리 관리용)
                 instanceToAddress[component] = address;
 
-                Debug.Log($"[{poolName}] 새로 생성: {typeof(TComponent).Name} (Address: {address})");
+                // Address별 참조 카운트 증가 (이 풀에서 생성한 인스턴스 추적)
+                addressReferenceCounts[address]++;
+
+                // IPoolable 인터페이스 지원: OnGetFromPool 호출
+                if (component is IPoolable poolable)
+                {
+                    poolable.OnGetFromPool();
+                }
+
+                Type type = TypeCache<TComponent>.Type;
+                Log($"[{poolName}] 새로 생성: {type.Name} (Address: {address}, 활성 인스턴스: {addressReferenceCounts[address]})");
                 return component;
             }
             catch (OperationCanceledException)
             {
-                Debug.Log($"[{poolName}] 로드 취소됨: {address}");
+                Log($"[{poolName}] 로드 취소됨: {address}");
                 throw;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{poolName}] 로드 중 예외 발생: {address}\n{ex.Message}");
+                LogError($"[{poolName}] 로드 중 예외 발생: {address}\n{ex.Message}");
                 return null;
             }
         }
@@ -194,7 +243,7 @@ namespace Core.Pool
         {
             if (instance == null)
             {
-                Debug.LogWarning($"[{poolName}] null 인스턴스 반환 시도");
+                LogWarning($"[{poolName}] null 인스턴스 반환 시도");
                 return;
             }
 
@@ -203,7 +252,7 @@ namespace Core.Pool
             // Address 확인 (추적되지 않은 인스턴스 처리)
             if (!instanceToAddress.TryGetValue(instance, out var address))
             {
-                Debug.LogWarning($"[{poolName}] 추적되지 않은 인스턴스 반환 시도: {type.Name}");
+                LogWarning($"[{poolName}] 추적되지 않은 인스턴스 반환 시도: {type.Name}");
                 GameObject.Destroy(instance.gameObject);
                 return;
             }
@@ -222,8 +271,14 @@ namespace Core.Pool
             {
                 // 풀 크기 초과: 파괴 및 Address 해제
                 DestroyInstance(instance, address);
-                Debug.Log($"[{poolName}] 풀 크기 초과로 파괴: {type.Name} (최대: {maxSize})");
+                Log($"[{poolName}] 풀 크기 초과로 파괴: {type.Name} (최대: {maxSize})");
                 return;
+            }
+
+            // IPoolable 인터페이스 지원: OnReturnToPool 호출
+            if (instance is IPoolable poolable)
+            {
+                poolable.OnReturnToPool();
             }
 
             // 풀로 반환 (비활성화 후 Container 아래로 이동)
@@ -232,7 +287,7 @@ namespace Core.Pool
 
             pool.Enqueue(new PooledInstance(instance, address));
 
-            Debug.Log($"[{poolName}] 반환: {type.Name} (풀: {pool.Count}/{maxSize})");
+            Log($"[{poolName}] 반환: {type.Name} (풀: {pool.Count}/{maxSize})");
         }
 
         /// <summary>
@@ -242,7 +297,24 @@ namespace Core.Pool
         {
             instanceToAddress.Remove(instance);
             GameObject.Destroy(instance.gameObject);
-            AddressableManager.Instance.Release(address);
+
+            // Address별 참조 카운트 감소
+            if (addressReferenceCounts.TryGetValue(address, out int count))
+            {
+                addressReferenceCounts[address] = count - 1;
+
+                // 해당 Address의 모든 인스턴스가 제거되면 프리팹 캐시도 해제
+                if (addressReferenceCounts[address] <= 0)
+                {
+                    addressReferenceCounts.Remove(address);
+                    prefabCache.Remove(address);
+
+                    // AddressableManager에서 프리팹 해제
+                    AddressableManager.Instance.Release(address);
+
+                    Log($"[{poolName}] 프리팹 캐시 해제: {address}");
+                }
+            }
         }
 
         #endregion
@@ -252,6 +324,7 @@ namespace Core.Pool
         /// <summary>
         /// 특정 타입의 인스턴스를 미리 로드하여 풀에 채웁니다.
         /// 게임 시작 시 필요한 오브젝트를 미리 생성하여 런타임 성능을 향상시킵니다.
+        /// 프리팹은 한 번만 로드되고, 인스턴스만 count 개수만큼 생성됩니다.
         /// </summary>
         /// <typeparam name="TComponent">프리로드할 Component 타입</typeparam>
         /// <param name="address">Addressable Address</param>
@@ -261,22 +334,67 @@ namespace Core.Pool
         {
             if (count <= 0)
             {
-                Debug.LogWarning($"[{poolName}] 프리로드 개수가 0 이하입니다: {count}");
+                LogWarning($"[{poolName}] 프리로드 개수가 0 이하입니다: {count}");
                 return;
             }
 
-            Debug.Log($"[{poolName}] 프리로드 시작: {typeof(TComponent).Name} x{count}");
+            Type type = TypeCache<TComponent>.Type;
+            Log($"[{poolName}] 프리로드 시작: {type.Name} x{count}");
 
-            for (int i = 0; i < count; i++)
+            // 프리팹은 한 번만 로드 (캐시 확인)
+            GameObject prefab;
+            if (prefabCache.TryGetValue(address, out prefab))
             {
-                var instance = await GetAsync<TComponent>(address, poolContainer, ct);
-                if (instance != null)
+                // 이미 캐시된 프리팹 사용
+                Log($"[{poolName}] 캐시된 프리팹으로 프리로드: {address}");
+            }
+            else
+            {
+                // AddressableManager로 프리팹 로드 (최초 1회만)
+                prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct);
+
+                if (prefab == null)
                 {
-                    Return(instance);
+                    LogError($"[{poolName}] 프리로드 실패: {address}");
+                    return;
                 }
+
+                // 프리팹 캐시에 저장
+                prefabCache[address] = prefab;
+                addressReferenceCounts[address] = 0;
+
+                Log($"[{poolName}] 프리팹 로드 및 캐시: {address}");
             }
 
-            Debug.Log($"[{poolName}] 프리로드 완료: {typeof(TComponent).Name} x{count}");
+            // 인스턴스만 count 개수만큼 생성하여 풀에 추가
+            for (int i = 0; i < count; i++)
+            {
+                GameObject instance = GameObject.Instantiate(prefab, poolContainer);
+                TComponent component = instance.GetComponent<TComponent>();
+
+                if (component == null)
+                {
+                    LogError($"[{poolName}] Component 없음: {type.Name} (GameObject: {instance.name})");
+                    GameObject.Destroy(instance);
+                    continue;
+                }
+
+                // 바로 풀로 반환 (비활성화 상태로 풀에 저장)
+                instance.SetActive(false);
+                instanceToAddress[component] = address;
+                addressReferenceCounts[address]++;
+
+                // 풀 가져오기 또는 생성
+                if (!pools.TryGetValue(type, out var pool))
+                {
+                    pool = new Queue<PooledInstance>();
+                    pools[type] = pool;
+                }
+
+                pool.Enqueue(new PooledInstance(component, address));
+            }
+
+            Log($"[{poolName}] 프리로드 완료: {type.Name} x{count}");
         }
 
         #endregion
@@ -290,7 +408,7 @@ namespace Core.Pool
         /// <typeparam name="TComponent">비울 Component 타입</typeparam>
         public void ClearType<TComponent>() where TComponent : T
         {
-            Type type = typeof(TComponent);
+            Type type = TypeCache<TComponent>.Type;
 
             if (pools.TryGetValue(type, out var pool))
             {
@@ -304,7 +422,7 @@ namespace Core.Pool
 
                 pools.Remove(type);
 
-                Debug.Log($"[{poolName}] 타입 풀 비움: {type.Name} ({count}개 파괴)");
+                Log($"[{poolName}] 타입 풀 비움: {type.Name} ({count}개 파괴)");
             }
         }
 
@@ -328,7 +446,7 @@ namespace Core.Pool
 
             pools.Clear();
 
-            Debug.Log($"[{poolName}] 전체 풀 비움: {totalCount}개 파괴");
+            Log($"[{poolName}] 전체 풀 비움: {totalCount}개 파괴");
         }
 
         #endregion
@@ -340,7 +458,7 @@ namespace Core.Pool
         /// </summary>
         public int GetPoolCount<TComponent>() where TComponent : T
         {
-            Type type = typeof(TComponent);
+            Type type = TypeCache<TComponent>.Type;
             return pools.TryGetValue(type, out var pool) ? pool.Count : 0;
         }
 
@@ -357,24 +475,24 @@ namespace Core.Pool
         /// </summary>
         public void PrintDebugInfo()
         {
-            Debug.Log($"=== [{poolName}] 디버그 정보 ===");
-            Debug.Log($"총 타입 개수: {pools.Count}");
-            Debug.Log($"총 추적 인스턴스: {instanceToAddress.Count}");
+            Log($"=== [{poolName}] 디버그 정보 ===");
+            Log($"총 타입 개수: {pools.Count}");
+            Log($"총 추적 인스턴스: {instanceToAddress.Count}");
 
             if (pools.Count > 0)
             {
-                Debug.Log("\n[타입별 풀 상태]");
+                Log("\n[타입별 풀 상태]");
                 foreach (var kvp in pools)
                 {
                     Type type = kvp.Key;
                     int poolCount = kvp.Value.Count;
                     int maxSize = GetMaxPoolSize(type);
 
-                    Debug.Log($"- {type.Name}: {poolCount}/{maxSize}");
+                    Log($"- {type.Name}: {poolCount}/{maxSize}");
                 }
             }
 
-            Debug.Log("=====================================");
+            Log("=====================================");
         }
 
         #endregion
@@ -395,7 +513,7 @@ namespace Core.Pool
                 poolContainer = null;
             }
 
-            Debug.Log($"[{poolName}] Dispose 완료");
+            Log($"[{poolName}] Dispose 완료");
         }
 
         #endregion

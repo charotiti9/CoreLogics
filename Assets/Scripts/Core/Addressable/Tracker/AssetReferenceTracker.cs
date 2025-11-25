@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static Core.Addressable.AddressableLogger;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
@@ -40,6 +41,9 @@ namespace Core.Addressable.Tracker
         // 로드된 핸들 추적 (참조 카운팅)
         private readonly Dictionary<string, AssetHandle> loadHandles = new Dictionary<string, AssetHandle>();
 
+        // GC Allocation 최소화를 위한 캐시된 리스트
+        private readonly List<LoadedAssetInfo> cachedAssetInfoList = new List<LoadedAssetInfo>();
+
         #endregion
 
         #region 참조 관리
@@ -54,14 +58,14 @@ namespace Core.Addressable.Tracker
         {
             if (string.IsNullOrEmpty(address))
             {
-                Debug.LogWarning("[AssetReferenceTracker] Address가 비어있습니다.");
+                LogWarning("[AssetReferenceTracker] Address가 비어있습니다.");
                 return;
             }
 
             var assetHandle = new AssetHandle(handle, address, assetType);
             loadHandles[address] = assetHandle;
 
-            Debug.Log($"[AssetReferenceTracker] 참조 추가: {address} (RefCount: 1)");
+            Log($"[AssetReferenceTracker] 참조 추가: {address} (RefCount: 1)");
         }
 
         /// <summary>
@@ -74,7 +78,7 @@ namespace Core.Addressable.Tracker
             if (loadHandles.TryGetValue(address, out var assetHandle))
             {
                 assetHandle.ReferenceCount++;
-                Debug.Log($"[AssetReferenceTracker] 참조 증가: {address} (RefCount: {assetHandle.ReferenceCount})");
+                Log($"[AssetReferenceTracker] 참조 증가: {address} (RefCount: {assetHandle.ReferenceCount})");
                 return true;
             }
 
@@ -97,7 +101,7 @@ namespace Core.Addressable.Tracker
             {
                 assetHandle.ReferenceCount--;
 
-                Debug.Log($"[AssetReferenceTracker] 참조 감소: {address} (RefCount: {assetHandle.ReferenceCount})");
+                Log($"[AssetReferenceTracker] 참조 감소: {address} (RefCount: {assetHandle.ReferenceCount})");
 
                 // 참조 카운트가 0이 되면 실제 해제
                 if (assetHandle.ReferenceCount <= 0)
@@ -105,14 +109,14 @@ namespace Core.Addressable.Tracker
                     if (assetHandle.Handle.IsValid())
                     {
                         Addressables.Release(assetHandle.Handle);
-                        Debug.Log($"[AssetReferenceTracker] 리소스 실제 해제: {address}");
+                        Log($"[AssetReferenceTracker] 리소스 실제 해제: {address}");
                     }
                     loadHandles.Remove(address);
                 }
             }
             else
             {
-                Debug.LogWarning($"[AssetReferenceTracker] 해제할 리소스를 찾을 수 없습니다: {address}");
+                LogWarning($"[AssetReferenceTracker] 해제할 리소스를 찾을 수 없습니다: {address}");
             }
         }
 
@@ -149,21 +153,22 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 현재 로드된 모든 에셋 정보를 반환합니다.
+        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <returns>로드된 에셋 정보 리스트</returns>
         public IReadOnlyList<LoadedAssetInfo> GetLoadedAssets()
         {
-            var result = new List<LoadedAssetInfo>(loadHandles.Count);
+            cachedAssetInfoList.Clear();
             foreach (var handle in loadHandles.Values)
             {
-                result.Add(new LoadedAssetInfo
+                cachedAssetInfoList.Add(new LoadedAssetInfo
                 {
                     Address = handle.Address,
                     ReferenceCount = handle.ReferenceCount,
                     AssetType = handle.AssetType
                 });
             }
-            return result;
+            return cachedAssetInfoList;
         }
 
         /// <summary>
@@ -197,7 +202,7 @@ namespace Core.Addressable.Tracker
 
             loadHandles.Clear();
 
-            Debug.Log($"[AssetReferenceTracker] 모든 리소스 강제 해제 완료 (개수: {count})");
+            Log($"[AssetReferenceTracker] 모든 리소스 강제 해제 완료 (개수: {count})");
             return count;
         }
 

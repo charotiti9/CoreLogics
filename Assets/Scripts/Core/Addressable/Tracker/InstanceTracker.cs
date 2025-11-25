@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+using static Core.Addressable.AddressableLogger;
 namespace Core.Addressable.Tracker
 {
     /// <summary>
@@ -13,6 +14,10 @@ namespace Core.Addressable.Tracker
 
         // 인스턴스화된 오브젝트 추적 (GameObject → Address)
         private readonly Dictionary<GameObject, string> instantiatedObjects = new Dictionary<GameObject, string>();
+
+        // GC Allocation 최소화를 위한 캐시된 리스트
+        private readonly List<GameObject> cachedInstanceList = new List<GameObject>();
+        private readonly List<GameObject> cachedAddressInstanceList = new List<GameObject>();
 
         #endregion
 
@@ -27,18 +32,18 @@ namespace Core.Addressable.Tracker
         {
             if (instance == null)
             {
-                Debug.LogWarning("[InstanceTracker] null 인스턴스 추적 시도");
+                LogWarning("[InstanceTracker] null 인스턴스 추적 시도");
                 return;
             }
 
             if (string.IsNullOrEmpty(address))
             {
-                Debug.LogWarning("[InstanceTracker] Address가 비어있습니다.");
+                LogWarning("[InstanceTracker] Address가 비어있습니다.");
                 return;
             }
 
             instantiatedObjects[instance] = address;
-            Debug.Log($"[InstanceTracker] 인스턴스 추적 시작: {instance.name} (Address: {address})");
+            Log($"[InstanceTracker] 인스턴스 추적 시작: {instance.name} (Address: {address})");
         }
 
         /// <summary>
@@ -55,7 +60,7 @@ namespace Core.Addressable.Tracker
 
             if (instantiatedObjects.Remove(instance))
             {
-                Debug.Log($"[InstanceTracker] 인스턴스 추적 해제: {instance.name}");
+                Log($"[InstanceTracker] 인스턴스 추적 해제: {instance.name}");
                 return true;
             }
 
@@ -86,16 +91,14 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 모든 추적 중인 인스턴스를 반환합니다.
+        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <returns>인스턴스 리스트</returns>
         public IReadOnlyList<GameObject> GetAllInstances()
         {
-            var result = new List<GameObject>(instantiatedObjects.Count);
-            foreach (var key in instantiatedObjects.Keys)
-            {
-                result.Add(key);
-            }
-            return result;
+            cachedInstanceList.Clear();
+            cachedInstanceList.AddRange(instantiatedObjects.Keys);
+            return cachedInstanceList;
         }
 
         /// <summary>
@@ -108,20 +111,21 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 특정 Address로 생성된 인스턴스들을 조회합니다.
+        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <param name="address">Addressable Address</param>
         /// <returns>해당 Address로 생성된 인스턴스 리스트</returns>
         public IReadOnlyList<GameObject> GetInstancesByAddress(string address)
         {
-            var result = new List<GameObject>();
+            cachedAddressInstanceList.Clear();
             foreach (var pair in instantiatedObjects)
             {
                 if (pair.Value == address)
                 {
-                    result.Add(pair.Key);
+                    cachedAddressInstanceList.Add(pair.Key);
                 }
             }
-            return result;
+            return cachedAddressInstanceList;
         }
 
         #endregion
@@ -137,7 +141,7 @@ namespace Core.Addressable.Tracker
             int count = instantiatedObjects.Count;
             instantiatedObjects.Clear();
 
-            Debug.Log($"[InstanceTracker] 모든 인스턴스 추적 해제 완료 (개수: {count})");
+            Log($"[InstanceTracker] 모든 인스턴스 추적 해제 완료 (개수: {count})");
         }
 
         #endregion

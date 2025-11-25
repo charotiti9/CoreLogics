@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using static Core.Addressable.AddressableLogger;
 using Core.Addressable.Tracker;
 
 namespace Core.Addressable.Debugging
@@ -88,19 +89,19 @@ namespace Core.Addressable.Debugging
         /// </summary>
         public void PrintDebugInfo()
         {
-            UnityEngine.Debug.Log("=== AddressableManager 디버그 정보 ===");
-            UnityEngine.Debug.Log($"로드된 리소스: {GetLoadedCount()}개");
-            UnityEngine.Debug.Log($"추적 중인 인스턴스: {GetInstanceCount()}개");
-            UnityEngine.Debug.Log($"로딩 중인 작업: {GetLoadingCount()}개");
+            Log("=== AddressableManager 디버그 정보 ===");
+            Log($"로드된 리소스: {GetLoadedCount()}개");
+            Log($"추적 중인 인스턴스: {GetInstanceCount()}개");
+            Log($"로딩 중인 작업: {GetLoadingCount()}개");
 
             // 로드된 리소스 목록 출력
             var loadedAssets = GetLoadedAssets();
             if (loadedAssets.Count > 0)
             {
-                UnityEngine.Debug.Log("\n[로드된 리소스 목록]");
+                Log("\n[로드된 리소스 목록]");
                 foreach (var asset in loadedAssets)
                 {
-                    UnityEngine.Debug.Log($"- {asset.Address} | Type: {asset.AssetType.Name} | RefCount: {asset.ReferenceCount}");
+                    Log($"- {asset.Address} | Type: {asset.AssetType.Name} | RefCount: {asset.ReferenceCount}");
                 }
             }
 
@@ -108,17 +109,17 @@ namespace Core.Addressable.Debugging
             var instances = GetAllInstances();
             if (instances.Count > 0)
             {
-                UnityEngine.Debug.Log("\n[추적 중인 인스턴스 목록]");
+                Log("\n[추적 중인 인스턴스 목록]");
                 foreach (var instance in instances)
                 {
                     if (instance != null && instanceTracker.TryGetAddress(instance, out var address))
                     {
-                        UnityEngine.Debug.Log($"- {instance.name} | Address: {address}");
+                        Log($"- {instance.name} | Address: {address}");
                     }
                 }
             }
 
-            UnityEngine.Debug.Log("=====================================");
+            Log("=====================================");
         }
 
         #endregion

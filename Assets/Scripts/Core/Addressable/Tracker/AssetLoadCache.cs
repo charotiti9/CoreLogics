@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using static Core.Addressable.AddressableLogger;
 
 namespace Core.Addressable.Tracker
 {
@@ -29,7 +30,7 @@ namespace Core.Addressable.Tracker
         {
             if (loadingTasks.TryGetValue(address, out task))
             {
-                Debug.Log($"[AssetLoadCache] 로딩 중인 작업 발견: {address}");
+                Log($"[AssetLoadCache] 로딩 중인 작업 발견: {address}");
                 return true;
             }
 
@@ -44,7 +45,7 @@ namespace Core.Addressable.Tracker
         public void RegisterLoadingTask(string address, UniTask<UnityEngine.Object> task)
         {
             loadingTasks[address] = task;
-            Debug.Log($"[AssetLoadCache] 로딩 작업 등록: {address}");
+            Log($"[AssetLoadCache] 로딩 작업 등록: {address}");
         }
 
         /// <summary>
@@ -55,7 +56,7 @@ namespace Core.Addressable.Tracker
         {
             if (loadingTasks.Remove(address))
             {
-                Debug.Log($"[AssetLoadCache] 로딩 완료 및 캐시 제거: {address}");
+                Log($"[AssetLoadCache] 로딩 완료 및 캐시 제거: {address}");
             }
         }
 
@@ -83,7 +84,7 @@ namespace Core.Addressable.Tracker
             int count = loadingTasks.Count;
             loadingTasks.Clear();
 
-            Debug.Log($"[AssetLoadCache] 모든 캐시 제거 완료 (개수: {count})");
+            Log($"[AssetLoadCache] 모든 캐시 제거 완료 (개수: {count})");
         }
 
         #endregion
