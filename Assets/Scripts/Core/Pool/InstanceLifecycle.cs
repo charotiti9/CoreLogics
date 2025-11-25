@@ -11,8 +11,23 @@ namespace Core.Pool
     /// <typeparam name="T">Component 타입</typeparam>
     public class InstanceLifecycle<T> where T : Component
     {
-        // 인스턴스 → Address 매핑 (인스턴스 추적)
-        private readonly Dictionary<T, string> tracking = new Dictionary<T, string>();
+        /// <summary>
+        /// 추적 정보 (Address와 실제 Component Type)
+        /// </summary>
+        private class TrackingInfo
+        {
+            public string Address;
+            public Type ComponentType;
+
+            public TrackingInfo(string address, Type componentType)
+            {
+                Address = address;
+                ComponentType = componentType;
+            }
+        }
+
+        // 인스턴스 → 추적 정보 매핑
+        private readonly Dictionary<T, TrackingInfo> tracking = new Dictionary<T, TrackingInfo>();
 
         // 풀 이름 (로깅용)
         private readonly string poolName;
@@ -81,8 +96,9 @@ namespace Core.Pool
                 return null;
             }
 
-            // 추적 시작
-            TrackInstance(component, address);
+            // 추적 시작 (Type 정보 포함)
+            Type componentType = typeof(TComponent);
+            TrackInstance(component, address, componentType);
 
             return component;
         }
@@ -104,9 +120,10 @@ namespace Core.Pool
         /// </summary>
         /// <param name="component">추적할 Component</param>
         /// <param name="address">리소스 Address</param>
-        public void TrackInstance(T component, string address)
+        /// <param name="componentType">실제 Component 타입</param>
+        public void TrackInstance(T component, string address, Type componentType)
         {
-            tracking[component] = address;
+            tracking[component] = new TrackingInfo(address, componentType);
         }
 
         /// <summary>
@@ -126,7 +143,35 @@ namespace Core.Pool
         /// <returns>추적 중인 인스턴스면 true</returns>
         public bool TryGetAddress(T component, out string address)
         {
-            return tracking.TryGetValue(component, out address);
+            if (tracking.TryGetValue(component, out var info))
+            {
+                address = info.Address;
+                return true;
+            }
+
+            address = null;
+            return false;
+        }
+
+        /// <summary>
+        /// 인스턴스의 추적 정보를 조회합니다 (Address와 Type 모두).
+        /// </summary>
+        /// <param name="component">조회할 Component</param>
+        /// <param name="address">조회된 Address</param>
+        /// <param name="componentType">조회된 Component 타입</param>
+        /// <returns>추적 중인 인스턴스면 true</returns>
+        public bool TryGetInfo(T component, out string address, out Type componentType)
+        {
+            if (tracking.TryGetValue(component, out var info))
+            {
+                address = info.Address;
+                componentType = info.ComponentType;
+                return true;
+            }
+
+            address = null;
+            componentType = null;
+            return false;
         }
 
         /// <summary>
@@ -138,7 +183,7 @@ namespace Core.Pool
 
             foreach (var kvp in tracking)
             {
-                result.Add((kvp.Key, kvp.Value));
+                result.Add((kvp.Key, kvp.Value.Address));
             }
 
             return result;

@@ -14,8 +14,8 @@ namespace Core.Pool
     /// </summary>
     public static class PoolManager
     {
-        // 타입별 ObjectPool 캐싱
-        private static Dictionary<Type, object> pools = new Dictionary<Type, object>();
+        // 타입별 ObjectPool 캐싱 (박싱 제거: ObjectPoolBase 사용)
+        private static Dictionary<Type, ObjectPoolBase> pools = new Dictionary<Type, ObjectPoolBase>();
 
         // Parent Transform 캐싱 (이름 → Transform)
         private static Dictionary<string, Transform> parentCache = new Dictionary<string, Transform>();
@@ -56,37 +56,24 @@ namespace Core.Pool
         }
 
         /// <summary>
-        /// PoolManager 초기화
-        /// 게임 시작 시 한 번만 호출합니다.
-        /// Get/Preload 메서드에서 자동으로 호출되므로 명시적 호출은 선택사항입니다.
+        /// PoolManager 초기화 (내부 전용)
+        /// Get/Preload 메서드에서 자동으로 호출됩니다.
         /// </summary>
-        public static void Initialize()
+        private static void Initialize()
         {
             if (isInitialized)
             {
-                Log("[PoolManager] 이미 초기화되었습니다.");
                 return;
             }
 
-            pools = new Dictionary<Type, object>();
+            pools = new Dictionary<Type, ObjectPoolBase>();
             parentCache = new Dictionary<string, Transform>();
             isInitialized = true;
 
             // 씬 전환 시 parent 캐시 자동 정리
             UnityEngine.SceneManagement.SceneManager.sceneUnloaded += OnSceneUnloaded;
 
-            Log("[PoolManager] 초기화 완료");
-        }
-
-        /// <summary>
-        /// 초기화를 보장합니다. (Lazy initialization)
-        /// </summary>
-        private static void EnsureInitialized()
-        {
-            if (!isInitialized)
-            {
-                Initialize();
-            }
+            Log("[PoolManager] 자동 초기화 완료");
         }
 
         /// <summary>
@@ -111,7 +98,7 @@ namespace Core.Pool
         /// <returns>Component 인스턴스</returns>
         public static async UniTask<T> Get<T>(CancellationToken ct) where T : Component
         {
-            EnsureInitialized();
+            Initialize();
 
             // 1. Attribute 추출 (캐시됨)
             string address = AttributeCache<T>.Address;
@@ -152,14 +139,14 @@ namespace Core.Pool
 
             Type type = typeof(T);
 
-            if (!pools.TryGetValue(type, out object poolObj))
+            if (!pools.TryGetValue(type, out ObjectPoolBase pool))
             {
                 LogWarning($"[PoolManager] [{type.Name}] Pool이 존재하지 않습니다. 인스턴스를 파괴합니다.");
                 GameObject.Destroy(instance.gameObject);
                 return;
             }
 
-            ObjectPool<Component> pool = poolObj as ObjectPool<Component>;
+            // 박싱 없이 직접 호출
             pool.Return(instance);
         }
 
@@ -171,7 +158,7 @@ namespace Core.Pool
         /// <param name="ct">CancellationToken</param>
         public static async UniTask Preload<T>(int count, CancellationToken ct) where T : Component
         {
-            EnsureInitialized();
+            Initialize();
 
             // 1. Attribute 추출 (캐시됨)
             string address = AttributeCache<T>.Address;
@@ -196,13 +183,16 @@ namespace Core.Pool
 
             Type type = typeof(T);
 
-            if (!pools.TryGetValue(type, out object poolObj))
+            if (!pools.TryGetValue(type, out ObjectPoolBase poolBase))
             {
                 return;
             }
 
-            ObjectPool<Component> pool = poolObj as ObjectPool<Component>;
-            pool.ClearType<T>();
+            // 타입 안전한 호출을 위해 캐스팅
+            if (poolBase is ObjectPool<Component> pool)
+            {
+                pool.ClearType<T>();
+            }
 
             Log($"[PoolManager] 타입 풀 비움: {type.Name}");
         }
@@ -219,12 +209,10 @@ namespace Core.Pool
 
             foreach (var kvp in pools)
             {
-                Type type = kvp.Key;
-                object poolObj = kvp.Value;
+                ObjectPoolBase pool = kvp.Value;
 
-                // ObjectPool<Component>.Clear() 호출
-                var clearMethod = poolObj.GetType().GetMethod("Clear");
-                clearMethod?.Invoke(poolObj, null);
+                // Reflection 없이 직접 호출
+                pool.Clear();
             }
 
             pools.Clear();
@@ -282,10 +270,10 @@ namespace Core.Pool
         {
             Type type = typeof(T);
 
-            // 캐시 확인
-            if (pools.TryGetValue(type, out object poolObj))
+            // 캐시 확인 (박싱 없음)
+            if (pools.TryGetValue(type, out ObjectPoolBase poolBase))
             {
-                return poolObj as ObjectPool<Component>;
+                return poolBase as ObjectPool<Component>;
             }
 
             // 새로 생성
@@ -325,7 +313,7 @@ namespace Core.Pool
             }
 
             // 이름으로 GameObject 검색 (씬 내 모든 GameObject 검색)
-            GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>(true);
+            GameObject[] allObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
             GameObject parentObj = null;
 
             foreach (GameObject obj in allObjects)

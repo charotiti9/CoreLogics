@@ -107,6 +107,27 @@ namespace Core.Pool
         }
 
         /// <summary>
+        /// Type으로 풀에 인스턴스를 저장합니다 (Reflection 회피용).
+        /// </summary>
+        /// <param name="component">저장할 Component</param>
+        /// <param name="type">Component 타입</param>
+        /// <param name="address">인스턴스의 Address</param>
+        public void StoreByType(T component, Type type, string address)
+        {
+            // 풀 가져오기 또는 생성
+            if (!pools.TryGetValue(type, out var pool))
+            {
+                pool = new Queue<PoolItem>();
+                pools[type] = pool;
+            }
+
+            pool.Enqueue(new PoolItem(component, address));
+
+            int maxSize = GetMaxSize(type);
+            Log($"[{poolName}] 반환: {type.Name} (풀: {pool.Count}/{maxSize})");
+        }
+
+        /// <summary>
         /// 특정 타입의 풀이 꽉 찼는지 확인합니다.
         /// </summary>
         /// <typeparam name="TComponent">확인할 Component 타입</typeparam>
@@ -115,6 +136,22 @@ namespace Core.Pool
         {
             Type type = TypeCache<TComponent>.Type;
 
+            if (!pools.TryGetValue(type, out var pool))
+            {
+                return false;
+            }
+
+            int maxSize = GetMaxSize(type);
+            return pool.Count >= maxSize;
+        }
+
+        /// <summary>
+        /// Type으로 풀이 꽉 찼는지 확인합니다 (Reflection 회피용).
+        /// </summary>
+        /// <param name="type">확인할 Component 타입</param>
+        /// <returns>풀이 꽉 찼으면 true</returns>
+        public bool IsFullByType(Type type)
+        {
             if (!pools.TryGetValue(type, out var pool))
             {
                 return false;

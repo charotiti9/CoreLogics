@@ -12,8 +12,13 @@ namespace Core.Pool
     /// 메모리 안전한 참조 카운팅 및 자동 정리 기능을 제공합니다.
     /// </summary>
     /// <typeparam name="T">풀링할 Component 타입</typeparam>
-    public class ObjectPool<T> where T : Component
+    public class ObjectPool<T> : ObjectPoolBase where T : Component
     {
+        /// <summary>
+        /// 타입당 기본 최대 풀 크기
+        /// 풀에 이 개수 이상의 인스턴스가 쌓이면 추가 반환되는 인스턴스는 파괴됩니다.
+        /// </summary>
+        private const int DEFAULT_MAX_POOL_SIZE = 10;
         /// <summary>
         /// 제네릭 타입 캐싱 (typeof() 호출 비용 절감)
         /// 제네릭 정적 클래스는 타입별로 한 번만 생성되므로 캐싱에 최적화
@@ -65,7 +70,7 @@ namespace Core.Pool
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <returns>Addressable 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => Core.Addressable.AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct),
@@ -80,7 +85,7 @@ namespace Core.Pool
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <returns>Resources 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForResources(int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        public static ObjectPool<T> CreateForResources(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => UniTask.FromResult(Resources.Load<GameObject>(address)),
@@ -100,7 +105,7 @@ namespace Core.Pool
         public static ObjectPool<T> CreateCustom(
             Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
             Action<string> prefabReleaser = null,
-            int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+            int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
         {
             return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize);
         }
@@ -196,7 +201,7 @@ namespace Core.Pool
         #region Return (풀로 반환)
 
         /// <summary>
-        /// 인스턴스를 풀로 반환합니다.
+        /// 인스턴스를 풀로 반환합니다 (타입 안전한 버전).
         /// 풀 크기 제한을 초과하면 인스턴스를 파괴하고 Address를 해제합니다.
         /// </summary>
         /// <param name="instance">반환할 Component 인스턴스</param>
@@ -216,50 +221,47 @@ namespace Core.Pool
                 return;
             }
 
-            Type type = instance.GetType();
-
-            // Address 확인 (추적되지 않은 인스턴스 처리)
-            if (!lifecycle.TryGetAddress(instance, out var address))
+            // 추적 정보 가져오기 (Address와 Type 모두)
+            if (!lifecycle.TryGetInfo(instance, out var address, out Type componentType))
             {
-                LogWarning($"[{poolName}] 추적되지 않은 인스턴스 반환 시도: {type.Name}");
+                LogWarning($"[{poolName}] 추적되지 않은 인스턴스 반환 시도");
                 lifecycle.Destroy(instance);
                 return;
             }
 
-            // 풀 크기 제한 확인 (제네릭 메서드 호출을 위한 리플렉션 사용)
-            bool isFull = IsPoolFull(type);
+            // 풀 크기 제한 확인 (Reflection 없이 Type으로 직접 호출)
+            bool isFull = storage.IsFullByType(componentType);
 
             if (isFull)
             {
                 // 풀 크기 초과: 파괴 및 Address 해제
                 DestroyInstance(instance, address);
-                Log($"[{poolName}] 풀 크기 초과로 파괴: {type.Name}");
+                Log($"[{poolName}] 풀 크기 초과로 파괴: {componentType.Name}");
                 return;
             }
 
             // 비활성화
             lifecycle.Deactivate(instance, poolContainer);
 
-            // 풀에 저장 (제네릭 메서드 호출을 위한 리플렉션 사용)
-            StoreToPool(instance, type, address);
+            // 풀에 저장 (Reflection 없이 Type으로 직접 호출)
+            storage.StoreByType(instance, componentType, address);
         }
 
         /// <summary>
-        /// 특정 타입의 풀이 꽉 찼는지 확인합니다 (리플렉션 사용).
+        /// 인스턴스를 풀로 반환합니다 (ObjectPoolBase override).
+        /// Component를 받아 T로 캐스팅하여 처리합니다.
         /// </summary>
-        private bool IsPoolFull(Type type)
+        /// <param name="instance">반환할 Component 인스턴스</param>
+        public override void Return(Component instance)
         {
-            var method = typeof(PoolStorage<T>).GetMethod("IsFull").MakeGenericMethod(type);
-            return (bool)method.Invoke(storage, null);
-        }
-
-        /// <summary>
-        /// 풀에 저장합니다 (리플렉션 사용).
-        /// </summary>
-        private void StoreToPool(T instance, Type type, string address)
-        {
-            var method = typeof(PoolStorage<T>).GetMethod("Store").MakeGenericMethod(type);
-            method.Invoke(storage, new object[] { instance, address });
+            if (instance is T typedInstance)
+            {
+                Return(typedInstance);
+            }
+            else
+            {
+                LogWarning($"[{poolName}] 타입 불일치: {instance.GetType().Name}은 {typeof(T).Name}이 아닙니다.");
+            }
         }
 
         /// <summary>
@@ -351,10 +353,10 @@ namespace Core.Pool
         }
 
         /// <summary>
-        /// 모든 타입의 풀을 비웁니다.
+        /// 모든 타입의 풀을 비웁니다 (ObjectPoolBase override).
         /// 풀에 있는 모든 인스턴스와 활성 인스턴스를 파괴하고 Address를 해제합니다.
         /// </summary>
-        public void Clear()
+        public override void Clear()
         {
             int pooledCount = 0;
             int activeCount = 0;
@@ -438,10 +440,10 @@ namespace Core.Pool
         #region Dispose (리소스 정리)
 
         /// <summary>
-        /// 풀의 모든 리소스를 정리합니다.
+        /// 풀의 모든 리소스를 정리합니다 (ObjectPoolBase override).
         /// 모든 인스턴스를 파괴하고 Pool Container를 제거합니다.
         /// </summary>
-        public void Dispose()
+        public override void Dispose()
         {
             Clear();
 
