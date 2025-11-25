@@ -1,12 +1,12 @@
 using UnityEngine;
 
-namespace Core.Addressable
+namespace Core.Utilities
 {
     /// <summary>
-    /// Addressable 시스템 전용 로거
+    /// 게임 전역에서 사용하는 범용 로거
     /// 조건부 로그 출력으로 성능 최적화
     /// </summary>
-    internal static class AddressableLogger
+    public static class GameLogger
     {
         /// <summary>
         /// 로그 출력 활성화 여부
