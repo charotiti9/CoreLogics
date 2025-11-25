@@ -318,6 +318,34 @@ public async UniTask AttackAsync()
 - 오브젝트 풀링을 활용하여 빈번한 생성/파괴를 방지합니다.
 - **코루틴 대신 UniTask 사용**으로 GC Allocation 0 달성
 - 비동기 작업은 항상 CancellationToken과 함께 사용하여 메모리 누수 방지
+- **LINQ 사용 금지**: 성능 문제로 인해 LINQ는 사용하지 않습니다.
+  - `foreach` 루프와 명시적 컬렉션 조작을 사용합니다.
+  - LINQ는 GC Allocation과 성능 오버헤드를 발생시킵니다.
+
+```csharp
+// ❌ 나쁜 예시: LINQ 사용
+var activePlayers = players.Where(p => p.IsActive).ToList();
+var topScore = players.Max(p => p.Score);
+
+// ✅ 좋은 예시: 명시적 루프 사용
+var activePlayers = new List<Player>(players.Count);
+foreach (var player in players)
+{
+    if (player.IsActive)
+    {
+        activePlayers.Add(player);
+    }
+}
+
+int topScore = 0;
+foreach (var player in players)
+{
+    if (player.Score > topScore)
+    {
+        topScore = player.Score;
+    }
+}
+```
 
 ### 컴포넌트 구조
 - 단일 책임 원칙에 따라 컴포넌트를 분리합니다.
@@ -340,3 +368,4 @@ public async UniTask AttackAsync()
 - [ ] Initialize() 메서드를 통한 명시적 초기화를 구현했는가?
 - [ ] GameFlowManager를 통한 중앙집중식 업데이트 구조를 사용했는가?
 - [ ] Unity 성능 최적화를 고려했는가?
+- [ ] LINQ를 사용하지 않고 명시적 루프를 사용했는가?
