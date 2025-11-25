@@ -1,9 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.AddressableAssets;
+using Core.Pool;
 
 namespace Common.UI
 {
@@ -73,8 +74,8 @@ namespace Common.UI
             uiCanvas = new UICanvas(transform);
             uiCanvas.Initialize(mainCanvasObj);
 
-            // UIPool 초기화
-            uiPool = new UIPool();
+            // ObjectPool 초기화 (Addressable 방식)
+            uiPool = ObjectPool<UIBase>.CreateForAddressable();
 
             // UIDimController 초기화
             dimController = new UIDimController(uiCanvas);

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-
-using static Core.Addressable.AddressableLogger;
+using static Core.Utilities.GameLogger;
 namespace Core.Addressable.Tracker
 {
     /// <summary>

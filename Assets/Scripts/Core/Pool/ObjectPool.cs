@@ -3,21 +3,18 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using Core.Addressable;
-using static Core.Pool.PoolLogger;
+using static Core.Utilities.GameLogger;
 
 namespace Core.Pool
 {
     /// <summary>
     /// Component 기반 제네릭 풀링 시스템
-    /// Addressable 리소스를 풀링하여 생성/파괴 비용을 최소화합니다.
+    /// 프리팹 로더를 주입받아 Addressable, Resources 등 다양한 방식 지원
     /// 메모리 안전한 참조 카운팅 및 자동 정리 기능을 제공합니다.
     /// </summary>
     /// <typeparam name="T">풀링할 Component 타입</typeparam>
-    public class AddressablePool<T> where T : Component
+    public class ObjectPool<T> where T : Component
     {
-        #region 내부 클래스
-
         /// <summary>
         /// 풀에 저장되는 인스턴스 정보
         /// Address를 함께 저장하여 메모리 안전성을 보장합니다.
@@ -43,10 +40,6 @@ namespace Core.Pool
             public static readonly Type Type = typeof(TComponent);
         }
 
-        #endregion
-
-        #region 필드
-
         // 타입별 풀 관리 (타입 → Queue)
         private readonly Dictionary<Type, Queue<PooledInstance>> pools = new Dictionary<Type, Queue<PooledInstance>>();
 
@@ -69,27 +62,79 @@ namespace Core.Pool
         // Address별 참조 카운트 (풀이 관리하는 프리팹의 참조)
         private readonly Dictionary<string, int> addressReferenceCounts = new Dictionary<string, int>();
 
-        #endregion
+        // 프리팹 로더 (외부에서 주입)
+        private readonly Func<string, CancellationToken, UniTask<GameObject>> prefabLoader;
 
-        #region 생성자
+        // 프리팹 해제 콜백 (외부에서 주입, 옵션)
+        private readonly Action<string> prefabReleaser;
+
+        #region 생성자 및 Factory 메서드
 
         /// <summary>
-        /// AddressablePool 생성자
-        /// Pool Container를 자동으로 생성하여 DontDestroyOnLoad 처리합니다.
+        /// Private 생성자
         /// </summary>
-        /// <param name="poolName">풀 이름 (디버깅용)</param>
-        /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
-        public AddressablePool(string poolName = "AddressablePool", int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        private ObjectPool(
+            Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
+            Action<string> prefabReleaser,
+            int defaultMaxSize)
         {
-            this.poolName = poolName;
+            this.prefabLoader = prefabLoader ?? throw new ArgumentNullException(nameof(prefabLoader));
+            this.prefabReleaser = prefabReleaser;
+            this.poolName = $"ObjectPool<{typeof(T).Name}>";
             this.defaultMaxPoolSize = defaultMaxSize;
 
             // Pool Container 생성 (DontDestroyOnLoad)
-            GameObject container = new GameObject($"[Pool] {poolName}");
+            GameObject container = new GameObject($"[Pool] {this.poolName}");
             GameObject.DontDestroyOnLoad(container);
             poolContainer = container.transform;
 
             Log($"[{this.poolName}] 풀 생성됨 (기본 최대 크기: {defaultMaxSize})");
+        }
+
+        /// <summary>
+        /// Addressable 방식의 ObjectPool 생성
+        /// 프리팹 로드/해제를 AddressableManager로 자동 처리합니다.
+        /// </summary>
+        /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <returns>Addressable 전용 ObjectPool</returns>
+        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        {
+            return new ObjectPool<T>(
+                prefabLoader: (address, ct) => Core.Addressable.AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct),
+                prefabReleaser: (address) => Core.Addressable.AddressableManager.Instance.Release(address),
+                defaultMaxSize: defaultMaxSize
+            );
+        }
+
+        /// <summary>
+        /// Resources 방식의 ObjectPool 생성
+        /// 프리팹 로드를 Resources.Load로 처리하며, 해제는 자동입니다.
+        /// </summary>
+        /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <returns>Resources 전용 ObjectPool</returns>
+        public static ObjectPool<T> CreateForResources(int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        {
+            return new ObjectPool<T>(
+                prefabLoader: (address, ct) => UniTask.FromResult(Resources.Load<GameObject>(address)),
+                prefabReleaser: null, // Resources는 명시적 해제 불필요
+                defaultMaxSize: defaultMaxSize
+            );
+        }
+
+        /// <summary>
+        /// 커스텀 로더를 사용하는 ObjectPool 생성
+        /// 고급 사용자를 위한 메서드입니다.
+        /// </summary>
+        /// <param name="prefabLoader">프리팹 로드 함수</param>
+        /// <param name="prefabReleaser">프리팹 해제 콜백 (옵션)</param>
+        /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <returns>커스텀 ObjectPool</returns>
+        public static ObjectPool<T> CreateCustom(
+            Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
+            Action<string> prefabReleaser = null,
+            int defaultMaxSize = PoolConfig.DEFAULT_MAX_POOL_SIZE)
+        {
+            return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize);
         }
 
         #endregion
@@ -123,10 +168,10 @@ namespace Core.Pool
 
         /// <summary>
         /// 풀에서 인스턴스를 가져오거나 새로 로드합니다.
-        /// 풀에 있으면 재사용, 없으면 Addressable에서 새로 로드합니다.
+        /// 풀에 있으면 재사용, 없으면 새로 로드합니다.
         /// </summary>
         /// <typeparam name="TComponent">가져올 Component 타입</typeparam>
-        /// <param name="address">Addressable Address</param>
+        /// <param name="address">리소스 Address</param>
         /// <param name="parent">부모 Transform</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>Component 인스턴스</returns>
@@ -157,7 +202,7 @@ namespace Core.Pool
         }
 
         /// <summary>
-        /// 새로운 인스턴스를 Addressable에서 로드합니다.
+        /// 새로운 인스턴스를 로드합니다.
         /// 프리팹은 캐시되어 중복 로드를 방지합니다.
         /// </summary>
         private async UniTask<TComponent> LoadNewAsync<TComponent>(string address, Transform parent, CancellationToken ct) where TComponent : T
@@ -174,8 +219,8 @@ namespace Core.Pool
                 }
                 else
                 {
-                    // AddressableManager로 프리팹 로드 (최초 1회만)
-                    prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct);
+                    // 프리팹 로더를 통해 로드 (최초 1회만)
+                    prefab = await prefabLoader(address, ct);
 
                     if (prefab == null)
                     {
@@ -196,8 +241,8 @@ namespace Core.Pool
 
                 if (component == null)
                 {
-                    Type chachedType = TypeCache<TComponent>.Type;
-                    LogError($"[{poolName}] Component 없음: {chachedType.Name} (GameObject: {instance.name})");
+                    Type cachedType = TypeCache<TComponent>.Type;
+                    LogError($"[{poolName}] Component 없음: {cachedType.Name} (GameObject: {instance.name})");
                     GameObject.Destroy(instance);
                     return null;
                 }
@@ -244,6 +289,14 @@ namespace Core.Pool
             if (instance == null)
             {
                 LogWarning($"[{poolName}] null 인스턴스 반환 시도");
+                return;
+            }
+
+            // GameObject 파괴 여부 체크
+            if (instance.gameObject == null)
+            {
+                LogWarning($"[{poolName}] 이미 파괴된 GameObject 반환 시도");
+                instanceToAddress.Remove(instance);
                 return;
             }
 
@@ -309,8 +362,8 @@ namespace Core.Pool
                     addressReferenceCounts.Remove(address);
                     prefabCache.Remove(address);
 
-                    // AddressableManager에서 프리팹 해제
-                    AddressableManager.Instance.Release(address);
+                    // 프리팹 해제 콜백 호출 (있으면)
+                    prefabReleaser?.Invoke(address);
 
                     Log($"[{poolName}] 프리팹 캐시 해제: {address}");
                 }
@@ -327,7 +380,7 @@ namespace Core.Pool
         /// 프리팹은 한 번만 로드되고, 인스턴스만 count 개수만큼 생성됩니다.
         /// </summary>
         /// <typeparam name="TComponent">프리로드할 Component 타입</typeparam>
-        /// <param name="address">Addressable Address</param>
+        /// <param name="address">리소스 Address</param>
         /// <param name="count">프리로드할 개수</param>
         /// <param name="ct">CancellationToken</param>
         public async UniTask PreloadAsync<TComponent>(string address, int count, CancellationToken ct) where TComponent : T
@@ -350,8 +403,8 @@ namespace Core.Pool
             }
             else
             {
-                // AddressableManager로 프리팹 로드 (최초 1회만)
-                prefab = await AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct);
+                // 프리팹 로더를 통해 로드 (최초 1회만)
+                prefab = await prefabLoader(address, ct);
 
                 if (prefab == null)
                 {
@@ -380,9 +433,16 @@ namespace Core.Pool
                 }
 
                 // 바로 풀로 반환 (비활성화 상태로 풀에 저장)
-                instance.SetActive(false);
                 instanceToAddress[component] = address;
                 addressReferenceCounts[address]++;
+
+                // IPoolable 인터페이스 지원: OnReturnToPool 호출
+                if (component is IPoolable poolable)
+                {
+                    poolable.OnReturnToPool();
+                }
+
+                instance.SetActive(false);
 
                 // 풀 가져오기 또는 생성
                 if (!pools.TryGetValue(type, out var pool))
@@ -428,25 +488,51 @@ namespace Core.Pool
 
         /// <summary>
         /// 모든 타입의 풀을 비웁니다.
-        /// 풀에 있는 모든 인스턴스를 파괴하고 Address를 해제합니다.
+        /// 풀에 있는 모든 인스턴스와 활성 인스턴스를 파괴하고 Address를 해제합니다.
         /// </summary>
         public void Clear()
         {
-            int totalCount = 0;
+            int pooledCount = 0;
+            int activeCount = 0;
 
+            // 1. 풀에 있는 인스턴스 파괴
             foreach (var pool in pools.Values)
             {
                 while (pool.Count > 0)
                 {
                     var pooledInstance = pool.Dequeue();
                     DestroyInstance(pooledInstance.Component, pooledInstance.Address);
-                    totalCount++;
+                    pooledCount++;
                 }
             }
 
             pools.Clear();
 
-            Log($"[{poolName}] 전체 풀 비움: {totalCount}개 파괴");
+            // 2. 활성 인스턴스도 파괴 (아직 Return 안 된 것들)
+            var activeInstances = new List<T>(instanceToAddress.Keys);
+            foreach (var instance in activeInstances)
+            {
+                if (instance != null && instanceToAddress.TryGetValue(instance, out var address))
+                {
+                    GameObject.Destroy(instance.gameObject);
+                    instanceToAddress.Remove(instance);
+                    activeCount++;
+
+                    // Address 참조 카운트 감소 및 프리팹 해제
+                    if (addressReferenceCounts.TryGetValue(address, out int count))
+                    {
+                        addressReferenceCounts[address] = count - 1;
+                        if (addressReferenceCounts[address] <= 0)
+                        {
+                            addressReferenceCounts.Remove(address);
+                            prefabCache.Remove(address);
+                            prefabReleaser?.Invoke(address);
+                        }
+                    }
+                }
+            }
+
+            Log($"[{poolName}] 전체 풀 비움: 풀링 {pooledCount}개, 활성 {activeCount}개 파괴");
         }
 
         #endregion
@@ -506,6 +592,12 @@ namespace Core.Pool
         public void Dispose()
         {
             Clear();
+
+            // 모든 Dictionary 정리
+            instanceToAddress.Clear();
+            prefabCache.Clear();
+            addressReferenceCounts.Clear();
+            maxPoolSizes.Clear();
 
             if (poolContainer != null)
             {

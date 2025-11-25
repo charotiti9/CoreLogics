@@ -8,6 +8,8 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using Core.Pool;
+using Core.Addressable;
 
 namespace Common.UI
 {
@@ -32,7 +34,7 @@ namespace Common.UI
         private InputActionAsset uiInputActions;
 
         private UICanvas uiCanvas;
-        private UIPool uiPool;
+        private ObjectPool<UIBase> uiPool;
         private UIDimController dimController;
         private UIStack uiStack;
 

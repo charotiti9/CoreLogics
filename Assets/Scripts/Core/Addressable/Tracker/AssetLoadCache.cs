@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using static Core.Addressable.AddressableLogger;
+using static Core.Utilities.GameLogger;
 
 namespace Core.Addressable.Tracker
 {

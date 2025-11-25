@@ -2,6 +2,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using Core.Pool;
 
 namespace Common.UI
 {
@@ -9,7 +10,7 @@ namespace Common.UI
     /// 모든 UI의 베이스 클래스
     /// UI의 생명주기와 공통 기능을 관리합니다.
     /// </summary>
-    public abstract class UIBase : MonoBehaviour
+    public abstract class UIBase : MonoBehaviour, IPoolable
     {
         private RectTransform rectTransform;
         private bool isInitialized;
@@ -241,6 +242,51 @@ namespace Common.UI
         {
             UIManager.Instance.Hide<T>(immediate);
         }
+
+        #region IPoolable 구현
+
+        /// <summary>
+        /// 풀에서 UI를 가져올 때 호출됩니다.
+        /// 초기화는 ShowInternalAsync에서 처리되므로 여기서는 추가 작업 없음
+        /// </summary>
+        public void OnGetFromPool()
+        {
+            // 초기화는 ShowInternalAsync에서 자동 처리됨
+        }
+
+        /// <summary>
+        /// 풀로 UI를 반환할 때 호출됩니다.
+        /// 안전장치로 아직 표시 중이면 Hide 처리
+        /// </summary>
+        public void OnReturnToPool()
+        {
+            if (IsShowing)
+            {
+                // 안전장치: UIManager가 Hide를 깜빡한 경우 대비
+                SafeHideAsync().Forget();
+            }
+        }
+
+        /// <summary>
+        /// 풀 반환 시 안전하게 Hide 처리 (예외 처리 포함)
+        /// </summary>
+        private async UniTaskVoid SafeHideAsync()
+        {
+            try
+            {
+                await HideInternalAsync(immediate: true, CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 정상 동작
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[UIBase] {GetType().Name} 풀 반환 시 Hide 중 예외 발생: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         private void OnDestroy()
         {

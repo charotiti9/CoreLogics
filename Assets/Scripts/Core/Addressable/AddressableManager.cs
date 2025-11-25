@@ -4,7 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using static Core.Addressable.AddressableLogger;
+using static Core.Utilities.GameLogger;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Core.Addressable.Tracker;
 using Core.Addressable.Debugging;
