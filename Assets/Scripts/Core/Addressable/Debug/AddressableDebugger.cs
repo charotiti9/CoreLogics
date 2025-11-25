@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using static Core.Addressable.AddressableLogger;
 using Core.Addressable.Tracker;
@@ -10,15 +10,10 @@ namespace Core.Addressable.Debugging
     /// </summary>
     public class AddressableDebugger
     {
-        #region 필드
 
         private readonly AssetReferenceTracker referenceTracker;
         private readonly AssetLoadCache loadCache;
         private readonly InstanceTracker instanceTracker;
-
-        #endregion
-
-        #region 생성자
 
         /// <summary>
         /// AddressableDebugger 생성자
@@ -35,8 +30,6 @@ namespace Core.Addressable.Debugging
             this.loadCache = loadCache;
             this.instanceTracker = instanceTracker;
         }
-
-        #endregion
 
         #region 디버그 정보 조회
 

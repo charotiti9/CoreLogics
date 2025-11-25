@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Core.Addressable.AddressableLogger;
@@ -13,8 +13,6 @@ namespace Core.Addressable.Tracker
     /// </summary>
     internal class AssetReferenceTracker
     {
-        #region 내부 클래스
-
         /// <summary>
         /// 에셋 핸들 정보 (참조 카운팅 포함)
         /// </summary>
@@ -34,17 +32,9 @@ namespace Core.Addressable.Tracker
             }
         }
 
-        #endregion
-
-        #region 필드
-
         // 로드된 핸들 추적 (참조 카운팅)
         private readonly Dictionary<string, AssetHandle> loadHandles = new Dictionary<string, AssetHandle>();
 
-        // GC Allocation 최소화를 위한 캐시된 리스트
-        private readonly List<LoadedAssetInfo> cachedAssetInfoList = new List<LoadedAssetInfo>();
-
-        #endregion
 
         #region 참조 관리
 
@@ -153,22 +143,21 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 현재 로드된 모든 에셋 정보를 반환합니다.
-        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <returns>로드된 에셋 정보 리스트</returns>
         public IReadOnlyList<LoadedAssetInfo> GetLoadedAssets()
         {
-            cachedAssetInfoList.Clear();
+            var assetInfoList = new List<LoadedAssetInfo>(loadHandles.Count);
             foreach (var handle in loadHandles.Values)
             {
-                cachedAssetInfoList.Add(new LoadedAssetInfo
+                assetInfoList.Add(new LoadedAssetInfo
                 {
                     Address = handle.Address,
                     ReferenceCount = handle.ReferenceCount,
                     AssetType = handle.AssetType
                 });
             }
-            return cachedAssetInfoList;
+            return assetInfoList;
         }
 
         /// <summary>

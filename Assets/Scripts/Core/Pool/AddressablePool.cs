@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -196,8 +196,8 @@ namespace Core.Pool
 
                 if (component == null)
                 {
-                    Type type = TypeCache<TComponent>.Type;
-                    LogError($"[{poolName}] Component 없음: {type.Name} (GameObject: {instance.name})");
+                    Type chachedType = TypeCache<TComponent>.Type;
+                    LogError($"[{poolName}] Component 없음: {chachedType.Name} (GameObject: {instance.name})");
                     GameObject.Destroy(instance);
                     return null;
                 }

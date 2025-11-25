@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -18,17 +18,11 @@ namespace Core.Addressable
     /// </summary>
     public class AddressableManager : LazyMonoSingleton<AddressableManager>
     {
-        #region 필드
-
         // 서브시스템
         private AssetReferenceTracker referenceTracker;
         private AssetLoadCache loadCache;
         private InstanceTracker instanceTracker;
         private AddressableDebugger debugger;
-
-        #endregion
-
-        #region 초기화
 
         protected override void Awake()
         {
@@ -43,7 +37,14 @@ namespace Core.Addressable
             Log("[AddressableManager] 초기화 완료");
         }
 
-        #endregion
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            // 씬 파괴 시 모든 리소스 해제
+            ReleaseAllInstances();
+            ReleaseAll();
+        }
 
         #region 기본 로드/해제
 
@@ -229,6 +230,7 @@ namespace Core.Addressable
 
             if (prefab == null)
             {
+                LogError($"[AddressableManager] 프리팹 로드 실패로 인스턴스 생성 불가: {address}");
                 return null;
             }
 
@@ -360,17 +362,5 @@ namespace Core.Addressable
 
         #endregion
 
-        #region Unity 생명주기
-
-        protected override void OnDestroy()
-        {
-            base.OnDestroy();
-
-            // 씬 파괴 시 모든 리소스 해제
-            ReleaseAllInstances();
-            ReleaseAll();
-        }
-
-        #endregion
     }
 }

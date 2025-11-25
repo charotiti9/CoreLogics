@@ -10,16 +10,8 @@ namespace Core.Addressable.Tracker
     /// </summary>
     internal class InstanceTracker
     {
-        #region 필드
-
         // 인스턴스화된 오브젝트 추적 (GameObject → Address)
         private readonly Dictionary<GameObject, string> instantiatedObjects = new Dictionary<GameObject, string>();
-
-        // GC Allocation 최소화를 위한 캐시된 리스트
-        private readonly List<GameObject> cachedInstanceList = new List<GameObject>();
-        private readonly List<GameObject> cachedAddressInstanceList = new List<GameObject>();
-
-        #endregion
 
         #region 추적 관리
 
@@ -91,14 +83,13 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 모든 추적 중인 인스턴스를 반환합니다.
-        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <returns>인스턴스 리스트</returns>
         public IReadOnlyList<GameObject> GetAllInstances()
         {
-            cachedInstanceList.Clear();
-            cachedInstanceList.AddRange(instantiatedObjects.Keys);
-            return cachedInstanceList;
+            var instanceList = new List<GameObject>(instantiatedObjects.Count);
+            instanceList.AddRange(instantiatedObjects.Keys);
+            return instanceList;
         }
 
         /// <summary>
@@ -111,21 +102,20 @@ namespace Core.Addressable.Tracker
 
         /// <summary>
         /// 특정 Address로 생성된 인스턴스들을 조회합니다.
-        /// (캐시된 리스트를 재사용하여 GC Allocation 최소화)
         /// </summary>
         /// <param name="address">Addressable Address</param>
         /// <returns>해당 Address로 생성된 인스턴스 리스트</returns>
         public IReadOnlyList<GameObject> GetInstancesByAddress(string address)
         {
-            cachedAddressInstanceList.Clear();
+            var instanceList = new List<GameObject>();
             foreach (var pair in instantiatedObjects)
             {
                 if (pair.Value == address)
                 {
-                    cachedAddressInstanceList.Add(pair.Key);
+                    instanceList.Add(pair.Key);
                 }
             }
-            return cachedAddressInstanceList;
+            return instanceList;
         }
 
         #endregion

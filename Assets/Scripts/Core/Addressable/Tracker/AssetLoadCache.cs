@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using static Core.Addressable.AddressableLogger;
@@ -11,12 +11,27 @@ namespace Core.Addressable.Tracker
     /// </summary>
     internal class AssetLoadCache
     {
-        #region 필드
-
         // 로딩 중인 작업 캐시 (중복 로드 방지)
         private readonly Dictionary<string, UniTask<UnityEngine.Object>> loadingTasks = new Dictionary<string, UniTask<UnityEngine.Object>>();
 
-        #endregion
+        /// <summary>
+        /// 현재 로딩 중인 작업 개수를 반환합니다.
+        /// </summary>
+        public int GetLoadingCount()
+        {
+            return loadingTasks.Count;
+        }
+
+        /// <summary>
+        /// 모든 캐시를 제거합니다.
+        /// </summary>
+        public void Clear()
+        {
+            int count = loadingTasks.Count;
+            loadingTasks.Clear();
+
+            Log($"[AssetLoadCache] 모든 캐시 제거 완료 (개수: {count})");
+        }
 
         #region 캐시 관리
 
@@ -62,31 +77,5 @@ namespace Core.Addressable.Tracker
 
         #endregion
 
-        #region 조회
-
-        /// <summary>
-        /// 현재 로딩 중인 작업 개수를 반환합니다.
-        /// </summary>
-        public int GetLoadingCount()
-        {
-            return loadingTasks.Count;
-        }
-
-        #endregion
-
-        #region 정리
-
-        /// <summary>
-        /// 모든 캐시를 제거합니다.
-        /// </summary>
-        public void Clear()
-        {
-            int count = loadingTasks.Count;
-            loadingTasks.Clear();
-
-            Log($"[AssetLoadCache] 모든 캐시 제거 완료 (개수: {count})");
-        }
-
-        #endregion
     }
 }
