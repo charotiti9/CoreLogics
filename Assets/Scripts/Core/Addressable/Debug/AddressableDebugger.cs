@@ -62,7 +62,7 @@ namespace Core.Addressable.Debugging
         /// </summary>
         public void PrintDebugInfo()
         {
-            Log("=== AddressableManager 디버그 정보 ===");
+            Log("=== AddressableLoader 디버그 정보 ===");
             Log($"로드된 리소스: {GetLoadedCount()}개");
             Log($"로딩 중인 작업: {GetLoadingCount()}개");
 

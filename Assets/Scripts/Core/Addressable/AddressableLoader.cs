@@ -16,7 +16,7 @@ namespace Core.Addressable
     /// 참조 카운팅, 중복 로드 방지 등 고급 기능 제공
     /// Facade 패턴을 사용하여 서브시스템을 조합합니다.
     /// </summary>
-    public class AddressableManager : LazyMonoSingleton<AddressableManager>
+    public class AddressableLoader : LazyMonoSingleton<AddressableLoader>
     {
         // 서브시스템
         private AssetReferenceTracker referenceTracker;
@@ -32,7 +32,7 @@ namespace Core.Addressable
             loadCache = new AssetLoadCache();
             debugger = new AddressableDebugger(referenceTracker, loadCache);
 
-            Log("[AddressableManager] 초기화 완료");
+            Log("[AddressableLoader] 초기화 완료");
         }
 
         protected override void OnDestroy()
@@ -55,10 +55,10 @@ namespace Core.Addressable
         /// <returns>로드된 리소스</returns>
         public async UniTask<T> LoadAssetAsync<T>(string address, CancellationToken ct = default) where T : UnityEngine.Object
         {
-            Log($"[AddressableManager] 로드 시도: {address}");
+            Log($"[AddressableLoader] 로드 시도: {address}");
             if (string.IsNullOrEmpty(address))
             {
-                LogError("[AddressableManager] Address가 비어있습니다.");
+                LogError("[AddressableLoader] Address가 비어있습니다.");
                 return null;
             }
 
@@ -66,25 +66,25 @@ namespace Core.Addressable
             if (referenceTracker.TryGetHandle(address, out var existingHandle))
             {
                 referenceTracker.IncreaseReference(address);
-                Log($"[AddressableManager] 리소스 재사용: {address}");
+                Log($"[AddressableLoader] 리소스 재사용: {address}");
                 return existingHandle.Result as T;
             }
 
             // 2. 로딩 중인 작업이 있으면 대기 (중복 로드 방지)
             if (loadCache.TryGetLoadingTask(address, out var loadingTask))
             {
-                Log($"[AddressableManager] 로딩 중인 작업 대기: {address}");
+                Log($"[AddressableLoader] 로딩 중인 작업 대기: {address}");
 
                 // 이미 로딩 중이면 완료될 때까지 대기
                 var result = await loadingTask;
 
                 // 로드 완료 후 참조 증가
                 referenceTracker.IncreaseReference(address);
-                Log($"[AddressableManager] 중복 로드 방지 후 참조 증가: {address}");
+                Log($"[AddressableLoader] 중복 로드 방지 후 참조 증가: {address}");
                 return result as T;
             }
 
-            // 3. 새로 로드 (Memoization 패턴)
+            // 3. 새로 로드
             var taskCompletionSource = new UniTaskCompletionSource<UnityEngine.Object>();
             loadCache.RegisterLoadingTask(address, taskCompletionSource.Task);
 
@@ -118,7 +118,7 @@ namespace Core.Addressable
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    LogError($"[AddressableManager] 리소스 로드 실패: {address}");
+                    LogError($"[AddressableLoader] 리소스 로드 실패: {address}");
                     LogError("Addressable Groups에 추가되어 있는지 확인하세요.");
                     LogError($"Address가 '{address}'로 설정되어 있는지 확인하세요.");
                     return null;
@@ -127,12 +127,12 @@ namespace Core.Addressable
                 // 핸들 저장 (참조 카운트 1로 시작)
                 referenceTracker.AddReference(address, handle, typeof(T));
 
-                Log($"[AddressableManager] 리소스 로드 성공: {address}");
+                Log($"[AddressableLoader] 리소스 로드 성공: {address}");
                 return handle.Result;
             }
             catch (Exception ex)
             {
-                LogError($"[AddressableManager] 로드 중 예외 발생: {address}\n{ex.Message}");
+                LogError($"[AddressableLoader] 로드 중 예외 발생: {address}\n{ex.Message}");
                 return null;
             }
         }
@@ -148,7 +148,7 @@ namespace Core.Addressable
         {
             if (string.IsNullOrEmpty(label))
             {
-                LogError("[AddressableManager] Label이 비어있습니다.");
+                LogError("[AddressableLoader] Label이 비어있습니다.");
                 return null;
             }
 
@@ -156,7 +156,7 @@ namespace Core.Addressable
             if (referenceTracker.TryGetHandle(label, out var existingHandle))
             {
                 referenceTracker.IncreaseReference(label);
-                Log($"[AddressableManager] 라벨 리소스 재사용: {label}");
+                Log($"[AddressableLoader] 라벨 리소스 재사용: {label}");
                 return existingHandle.Result as IList<T>;
             }
 
@@ -167,7 +167,7 @@ namespace Core.Addressable
 
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
-                    LogError($"[AddressableManager] 라벨 리소스 로드 실패: {label}");
+                    LogError($"[AddressableLoader] 라벨 리소스 로드 실패: {label}");
                     LogError($"Label '{label}'이 Addressable Groups에 설정되어 있는지 확인하세요.");
                     return null;
                 }
@@ -175,12 +175,12 @@ namespace Core.Addressable
                 // 핸들 저장
                 referenceTracker.AddReference(label, handle, typeof(T));
 
-                Log($"[AddressableManager] 라벨 리소스 로드 성공: {label} (개수: {handle.Result.Count})");
+                Log($"[AddressableLoader] 라벨 리소스 로드 성공: {label} (개수: {handle.Result.Count})");
                 return handle.Result;
             }
             catch (Exception ex)
             {
-                LogError($"[AddressableManager] 라벨 로드 중 예외 발생: {label}\n{ex.Message}");
+                LogError($"[AddressableLoader] 라벨 로드 중 예외 발생: {label}\n{ex.Message}");
                 return null;
             }
         }
@@ -204,7 +204,7 @@ namespace Core.Addressable
             int count = referenceTracker.ReleaseAll();
             loadCache.Clear();
 
-            Log($"[AddressableManager] 모든 리소스 강제 해제 완료 (개수: {count})");
+            Log($"[AddressableLoader] 모든 리소스 강제 해제 완료 (개수: {count})");
         }
 
         #endregion
@@ -227,7 +227,7 @@ namespace Core.Addressable
             }
             await UniTask.WhenAll(taskList);
 
-            Log($"[AddressableManager] 프리로드 완료 (개수: {count})");
+            Log($"[AddressableLoader] 프리로드 완료 (개수: {count})");
         }
 
         /// <summary>
@@ -239,7 +239,7 @@ namespace Core.Addressable
         {
             await LoadAssetsAsync<UnityEngine.Object>(label, ct);
 
-            Log($"[AddressableManager] 라벨 프리로드 완료: {label}");
+            Log($"[AddressableLoader] 라벨 프리로드 완료: {label}");
         }
 
         #endregion

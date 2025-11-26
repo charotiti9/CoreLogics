@@ -9,7 +9,7 @@ namespace Core.Pool
 {
     /// <summary>
     /// Component 기반 제네릭 풀링 시스템
-    /// AddressableManager를 통해 프리팹을 로드하고 인스턴스를 풀링합니다.
+    /// AddressableLoader를 통해 프리팹을 로드하고 인스턴스를 풀링합니다.
     /// 메모리 안전한 참조 카운팅 및 자동 정리 기능을 제공합니다.
     /// </summary>
     /// <typeparam name="T">풀링할 Component 타입</typeparam>
@@ -82,7 +82,7 @@ namespace Core.Pool
 
         /// <summary>
         /// Addressable 방식의 ObjectPool 생성
-        /// 프리팹 로드/해제를 AddressableManager로 자동 처리합니다.
+        /// 프리팹 로드/해제를 AddressableLoader로 자동 처리합니다.
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
@@ -90,8 +90,8 @@ namespace Core.Pool
         public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false)
         {
             return new ObjectPool<T>(
-                prefabLoader: (address, ct) => Core.Addressable.AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct),
-                prefabReleaser: (address) => Core.Addressable.AddressableManager.Instance.Release(address),
+                prefabLoader: (address, ct) => Core.Addressable.AddressableLoader.Instance.LoadAssetAsync<GameObject>(address, ct),
+                prefabReleaser: (address) => Core.Addressable.AddressableLoader.Instance.Release(address),
                 defaultMaxSize: defaultMaxSize,
                 dontDestroyOnLoad: dontDestroyOnLoad
             );
