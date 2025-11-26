@@ -4,6 +4,7 @@ using UnityEngine;
 using static Core.Utilities.GameLogger;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Core.Utilities;
 
 namespace Core.Addressable.Tracker
 {
@@ -13,28 +14,31 @@ namespace Core.Addressable.Tracker
     /// </summary>
     internal class AssetReferenceTracker
     {
+        // 참조 카운터 (Address → AsyncOperationHandle)
+        private readonly ReferenceCounter<string, AsyncOperationHandle> referenceCounter;
+
+        // 에셋 타입 정보 (Address → Type)
+        private readonly Dictionary<string, Type> assetTypes = new Dictionary<string, Type>();
+
         /// <summary>
-        /// 에셋 핸들 정보 (참조 카운팅 포함)
+        /// AssetReferenceTracker 생성자
         /// </summary>
-        private class AssetHandle
+        public AssetReferenceTracker()
         {
-            public AsyncOperationHandle Handle;
-            public int ReferenceCount;
-            public string Address;
-            public Type AssetType;
-
-            public AssetHandle(AsyncOperationHandle handle, string address, Type assetType)
-            {
-                Handle = handle;
-                ReferenceCount = 1;
-                Address = address;
-                AssetType = assetType;
-            }
+            // 참조 카운트가 0이 되면 Addressables.Release 호출
+            referenceCounter = new ReferenceCounter<string, AsyncOperationHandle>(
+                onReleaseCallback: (address, handle) =>
+                {
+                    if (handle.IsValid())
+                    {
+                        Addressables.Release(handle);
+                        Log($"[AssetReferenceTracker] 리소스 실제 해제: {address}");
+                    }
+                    assetTypes.Remove(address);
+                },
+                logName: "AssetReferenceTracker"
+            );
         }
-
-        // 로드된 핸들 추적 (참조 카운팅)
-        private readonly Dictionary<string, AssetHandle> loadHandles = new Dictionary<string, AssetHandle>();
-
 
         #region 참조 관리
 
@@ -52,10 +56,8 @@ namespace Core.Addressable.Tracker
                 return;
             }
 
-            var assetHandle = new AssetHandle(handle, address, assetType);
-            loadHandles[address] = assetHandle;
-
-            Log($"[AssetReferenceTracker] 참조 추가: {address} (RefCount: 1)");
+            referenceCounter.Add(address, handle);
+            assetTypes[address] = assetType;
         }
 
         /// <summary>
@@ -65,14 +67,7 @@ namespace Core.Addressable.Tracker
         /// <returns>참조 증가 성공 여부</returns>
         public bool IncreaseReference(string address)
         {
-            if (loadHandles.TryGetValue(address, out var assetHandle))
-            {
-                assetHandle.ReferenceCount++;
-                Log($"[AssetReferenceTracker] 참조 증가: {address} (RefCount: {assetHandle.ReferenceCount})");
-                return true;
-            }
-
-            return false;
+            return referenceCounter.Increase(address);
         }
 
         /// <summary>
@@ -87,27 +82,7 @@ namespace Core.Addressable.Tracker
                 return;
             }
 
-            if (loadHandles.TryGetValue(address, out var assetHandle))
-            {
-                assetHandle.ReferenceCount--;
-
-                Log($"[AssetReferenceTracker] 참조 감소: {address} (RefCount: {assetHandle.ReferenceCount})");
-
-                // 참조 카운트가 0이 되면 실제 해제
-                if (assetHandle.ReferenceCount <= 0)
-                {
-                    if (assetHandle.Handle.IsValid())
-                    {
-                        Addressables.Release(assetHandle.Handle);
-                        Log($"[AssetReferenceTracker] 리소스 실제 해제: {address}");
-                    }
-                    loadHandles.Remove(address);
-                }
-            }
-            else
-            {
-                LogWarning($"[AssetReferenceTracker] 해제할 리소스를 찾을 수 없습니다: {address}");
-            }
+            referenceCounter.Decrease(address);
         }
 
         #endregion
@@ -122,22 +97,21 @@ namespace Core.Addressable.Tracker
         /// <returns>핸들이 존재하고 유효하면 true</returns>
         public bool TryGetHandle(string address, out AsyncOperationHandle handle)
         {
-            handle = default;
-
-            if (loadHandles.TryGetValue(address, out var assetHandle))
+            if (referenceCounter.TryGetValue(address, out handle))
             {
-                if (assetHandle.Handle.IsValid() && assetHandle.Handle.Status == AsyncOperationStatus.Succeeded)
+                if (handle.IsValid() && handle.Status == AsyncOperationStatus.Succeeded)
                 {
-                    handle = assetHandle.Handle;
                     return true;
                 }
                 else
                 {
                     // 유효하지 않은 핸들 제거
-                    loadHandles.Remove(address);
+                    referenceCounter.Remove(address);
+                    assetTypes.Remove(address);
                 }
             }
 
+            handle = default;
             return false;
         }
 
@@ -147,16 +121,25 @@ namespace Core.Addressable.Tracker
         /// <returns>로드된 에셋 정보 리스트</returns>
         public IReadOnlyList<LoadedAssetInfo> GetLoadedAssets()
         {
-            var assetInfoList = new List<LoadedAssetInfo>(loadHandles.Count);
-            foreach (var handle in loadHandles.Values)
+            var counts = referenceCounter.GetAllCounts();
+            var assetInfoList = new List<LoadedAssetInfo>(counts.Count);
+
+            foreach (var kvp in counts)
             {
+                string address = kvp.Key;
+                int refCount = kvp.Value;
+
+                // 타입 정보 조회
+                Type assetType = assetTypes.ContainsKey(address) ? assetTypes[address] : null;
+
                 assetInfoList.Add(new LoadedAssetInfo
                 {
-                    Address = handle.Address,
-                    ReferenceCount = handle.ReferenceCount,
-                    AssetType = handle.AssetType
+                    Address = address,
+                    ReferenceCount = refCount,
+                    AssetType = assetType
                 });
             }
+
             return assetInfoList;
         }
 
@@ -165,7 +148,7 @@ namespace Core.Addressable.Tracker
         /// </summary>
         public int GetLoadedCount()
         {
-            return loadHandles.Count;
+            return referenceCounter.GetTotalCount();
         }
 
         #endregion
@@ -178,20 +161,10 @@ namespace Core.Addressable.Tracker
         /// <returns>해제된 에셋 개수</returns>
         public int ReleaseAll()
         {
-            int count = 0;
+            int count = referenceCounter.GetTotalCount();
+            referenceCounter.Clear();
+            assetTypes.Clear();
 
-            foreach (var assetHandle in loadHandles.Values)
-            {
-                if (assetHandle.Handle.IsValid())
-                {
-                    Addressables.Release(assetHandle.Handle);
-                    count++;
-                }
-            }
-
-            loadHandles.Clear();
-
-            Log($"[AssetReferenceTracker] 모든 리소스 강제 해제 완료 (개수: {count})");
             return count;
         }
 

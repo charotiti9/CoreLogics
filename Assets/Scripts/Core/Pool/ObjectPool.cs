@@ -3,12 +3,13 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using static Core.Utilities.GameLogger;
+using Core.Utilities;
 
 namespace Core.Pool
 {
     /// <summary>
     /// Component 기반 제네릭 풀링 시스템
-    /// 프리팹 로더를 주입받아 Addressable, Resources 등 다양한 방식 지원
+    /// AddressableManager를 통해 프리팹을 로드하고 인스턴스를 풀링합니다.
     /// 메모리 안전한 참조 카운팅 및 자동 정리 기능을 제공합니다.
     /// </summary>
     /// <typeparam name="T">풀링할 Component 타입</typeparam>
@@ -21,10 +22,13 @@ namespace Core.Pool
         private const int DEFAULT_MAX_POOL_SIZE = 10;
 
         // 서브 클래스들
-        private readonly PrefabCache<T> prefabCache;
+        private readonly ReferenceCounter<string, GameObject> prefabCounter;
         private readonly PoolStorage<T> storage;
         private readonly InstanceLifecycle<T> lifecycle;
         private readonly InstanceTracker<T> tracker;
+
+        // 프리팹 로더
+        private readonly Func<string, CancellationToken, UniTask<GameObject>> prefabLoader;
 
         // Pool Container (Transform 관리)
         private Transform poolContainer;
@@ -44,9 +48,20 @@ namespace Core.Pool
             bool dontDestroyOnLoad)
         {
             this.poolName = $"ObjectPool<{typeof(T).Name}>";
+            this.prefabLoader = prefabLoader;
+
+            // 참조 카운터 초기화 (프리팹별 인스턴스 개수 추적)
+            this.prefabCounter = new ReferenceCounter<string, GameObject>(
+                onReleaseCallback: (address, prefab) =>
+                {
+                    // 모든 인스턴스가 제거되면 프리팹 해제
+                    prefabReleaser?.Invoke(address);
+                    Log($"[{poolName}] 프리팹 해제: {address}");
+                },
+                logName: poolName
+            );
 
             // 서브 클래스 초기화
-            this.prefabCache = new PrefabCache<T>(prefabLoader, prefabReleaser, poolName);
             this.storage = new PoolStorage<T>(defaultMaxSize, poolName);
             this.lifecycle = new InstanceLifecycle<T>(poolName);
             this.tracker = new InstanceTracker<T>();
@@ -168,13 +183,23 @@ namespace Core.Pool
         {
             try
             {
-                // 프리팹 로드 (캐시 활용)
-                GameObject prefab = await prefabCache.LoadAsync(address, ct);
+                // 프리팹 로드 (캐시 확인 또는 새로 로드)
+                GameObject prefab;
 
-                if (prefab == null)
+                if (!prefabCounter.TryGetValue(address, out prefab))
                 {
-                    LogError($"[{poolName}] 프리팹 로드 실패: {address} (Prefab이 null입니다)");
-                    return null;
+                    // 최초 로드
+                    prefab = await prefabLoader(address, ct);
+
+                    if (prefab == null)
+                    {
+                        LogError($"[{poolName}] 프리팹 로드 실패: {address} (Prefab이 null입니다)");
+                        return null;
+                    }
+
+                    // 프리팹 캐싱 (참조 카운트 1로 시작)
+                    prefabCounter.Add(address, prefab);
+                    Log($"[{poolName}] 프리팹 로드 및 캐싱: {address}");
                 }
 
                 // usePoolContainer가 true면 poolContainer 사용, 아니면 parent 사용
@@ -196,8 +221,8 @@ namespace Core.Pool
                 // 활성화 (targetParent 사용)
                 lifecycle.Activate(component, targetParent);
 
-                // Address별 참조 카운트 증가
-                prefabCache.AddReference(address);
+                // 프리팹 참조 카운트 증가 (인스턴스 개수 추적)
+                prefabCounter.Increase(address);
 
                 Log($"[{poolName}] 새로 생성: {componentType.Name} (Address: {address})");
                 return component;
@@ -289,7 +314,7 @@ namespace Core.Pool
         {
             tracker.Untrack(instance);
             lifecycle.Destroy(instance);
-            prefabCache.RemoveReference(address);
+            prefabCounter.Decrease(address);
         }
 
         #endregion
@@ -317,13 +342,23 @@ namespace Core.Pool
             Type type = TypeCache<TComponent>.Type;
             Log($"[{poolName}] 프리로드 시작: {type.Name} x{count}");
 
-            // 프리팹 로드 (캐시 활용)
-            GameObject prefab = await prefabCache.LoadAsync(address, ct);
+            // 프리팹 로드 (캐시 확인 또는 새로 로드)
+            GameObject prefab;
 
-            if (prefab == null)
+            if (!prefabCounter.TryGetValue(address, out prefab))
             {
-                LogError($"[{poolName}] 프리로드 실패: {address}");
-                return;
+                // 최초 로드
+                prefab = await prefabLoader(address, ct);
+
+                if (prefab == null)
+                {
+                    LogError($"[{poolName}] 프리로드 실패: {address}");
+                    return;
+                }
+
+                // 프리팹 캐싱 (참조 카운트 1로 시작)
+                prefabCounter.Add(address, prefab);
+                Log($"[{poolName}] 프리팹 로드 및 캐싱: {address}");
             }
 
             // parent가 null이면 poolContainer 사용
@@ -344,8 +379,8 @@ namespace Core.Pool
                 Type componentType = TypeCache<TComponent>.Type;
                 tracker.Track(component, address, componentType, targetParent);
 
-                // Address별 참조 카운트 증가
-                prefabCache.AddReference(address);
+                // 프리팹 참조 카운트 증가 (인스턴스 개수 추적)
+                prefabCounter.Increase(address);
 
                 // 비활성화 및 풀에 저장 (부모는 이미 설정됨)
                 lifecycle.Deactivate(component, targetParent);
@@ -405,13 +440,13 @@ namespace Core.Pool
                 {
                     lifecycle.Destroy(component);
                     tracker.Untrack(component);
-                    prefabCache.RemoveReference(address);
+                    prefabCounter.Decrease(address);
                     activeCount++;
                 }
             }
 
             tracker.Clear();
-            prefabCache.Clear();
+            prefabCounter.Clear();
 
             Log($"[{poolName}] 전체 풀 비움: 풀링 {pooledCount}개, 활성 {activeCount}개 파괴");
         }
@@ -443,7 +478,7 @@ namespace Core.Pool
         {
             Log($"=== [{poolName}] 디버그 정보 ===");
             Log($"총 추적 인스턴스: {tracker.Count}");
-            Log($"캐시된 프리팹: {prefabCache.GetCachedCount()}");
+            Log($"캐시된 프리팹: {prefabCounter.GetTotalCount()}");
 
             var storageInfo = storage.GetDebugInfo();
             if (storageInfo.Count > 0)

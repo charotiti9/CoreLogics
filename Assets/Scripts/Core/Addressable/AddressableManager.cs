@@ -13,7 +13,7 @@ namespace Core.Addressable
 {
     /// <summary>
     /// Addressable 리소스 로딩을 중앙에서 관리하는 싱글톤
-    /// 참조 카운팅, 중복 로드 방지, 인스턴스 추적 등 고급 기능 제공
+    /// 참조 카운팅, 중복 로드 방지 등 고급 기능 제공
     /// Facade 패턴을 사용하여 서브시스템을 조합합니다.
     /// </summary>
     public class AddressableManager : LazyMonoSingleton<AddressableManager>
@@ -21,7 +21,6 @@ namespace Core.Addressable
         // 서브시스템
         private AssetReferenceTracker referenceTracker;
         private AssetLoadCache loadCache;
-        private InstanceTracker instanceTracker;
         private AddressableDebugger debugger;
 
         protected override void Awake()
@@ -31,8 +30,7 @@ namespace Core.Addressable
             // 서브시스템 초기화
             referenceTracker = new AssetReferenceTracker();
             loadCache = new AssetLoadCache();
-            instanceTracker = new InstanceTracker();
-            debugger = new AddressableDebugger(referenceTracker, loadCache, instanceTracker);
+            debugger = new AddressableDebugger(referenceTracker, loadCache);
 
             Log("[AddressableManager] 초기화 완료");
         }
@@ -42,7 +40,6 @@ namespace Core.Addressable
             base.OnDestroy();
 
             // 씬 파괴 시 모든 리소스 해제
-            ReleaseAllInstances();
             ReleaseAll();
         }
 
@@ -212,84 +209,6 @@ namespace Core.Addressable
 
         #endregion
 
-        #region 인스턴스화 및 추적
-
-        /// <summary>
-        /// 프리팹을 로드하고 인스턴스화합니다.
-        /// 생성된 GameObject는 자동으로 추적됩니다.
-        /// 프리팹은 한 번만 로드되고, 인스턴스별로 참조 카운트가 관리되지 않습니다.
-        /// </summary>
-        /// <param name="address">Addressable Address</param>
-        /// <param name="parent">부모 Transform</param>
-        /// <param name="ct">CancellationToken</param>
-        /// <returns>생성된 GameObject 인스턴스</returns>
-        public async UniTask<GameObject> InstantiateAsync(string address, Transform parent = null, CancellationToken ct = default)
-        {
-            // 프리팹은 한 번만 로드 (이미 로드된 경우 재사용)
-            GameObject prefab = await LoadAssetAsync<GameObject>(address, ct);
-
-            if (prefab == null)
-            {
-                LogError($"[AddressableManager] 프리팹 로드 실패로 인스턴스 생성 불가: {address}");
-                return null;
-            }
-
-            GameObject instance = UnityEngine.Object.Instantiate(prefab, parent);
-
-            // 인스턴스 추적
-            instanceTracker.TrackInstance(instance, address);
-
-            Log($"[AddressableManager] 인스턴스 생성 및 추적: {address}");
-            return instance;
-        }
-
-        /// <summary>
-        /// 인스턴스화된 GameObject를 해제합니다.
-        /// GameObject를 파괴하고 추적에서 제거합니다.
-        /// (프리팹 자체는 참조 카운트로 관리되므로 여기서 해제하지 않습니다)
-        /// </summary>
-        /// <param name="instance">해제할 GameObject 인스턴스</param>
-        public void ReleaseInstance(GameObject instance)
-        {
-            if (instance == null)
-            {
-                return;
-            }
-
-            if (instanceTracker.TryGetAddress(instance, out var address))
-            {
-                // GameObject 파괴
-                UnityEngine.Object.Destroy(instance);
-
-                // 추적에서 제거
-                instanceTracker.UntrackInstance(instance);
-
-                Log($"[AddressableManager] 인스턴스 해제: {address}");
-            }
-            else
-            {
-                LogWarning($"[AddressableManager] 추적되지 않은 인스턴스입니다. 직접 파괴합니다.");
-                UnityEngine.Object.Destroy(instance);
-            }
-        }
-
-        /// <summary>
-        /// 모든 추적 중인 인스턴스를 해제합니다.
-        /// </summary>
-        public void ReleaseAllInstances()
-        {
-            var instances = instanceTracker.GetAllInstances();
-
-            foreach (var instance in instances)
-            {
-                ReleaseInstance(instance);
-            }
-
-            Log($"[AddressableManager] 모든 인스턴스 해제 완료 (개수: {instances.Count})");
-        }
-
-        #endregion
-
         #region 프리로드
 
         /// <summary>
@@ -342,14 +261,6 @@ namespace Core.Addressable
         public int GetLoadedCount()
         {
             return debugger.GetLoadedCount();
-        }
-
-        /// <summary>
-        /// 현재 추적 중인 인스턴스 개수를 반환합니다.
-        /// </summary>
-        public int GetInstanceCount()
-        {
-            return debugger.GetInstanceCount();
         }
 
         /// <summary>
