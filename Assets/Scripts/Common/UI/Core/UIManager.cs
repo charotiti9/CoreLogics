@@ -34,7 +34,6 @@ namespace Common.UI
         private InputActionAsset uiInputActions;
 
         private UICanvas uiCanvas;
-        private ObjectPool<UIBase> uiPool;
         private UIDimController dimController;
         private UIStack uiStack;
 
@@ -69,23 +68,18 @@ namespace Common.UI
                 // 입력 차단
                 UIInputBlocker.Instance.Block();
 
-                // Addressable 경로 가져오기
-                string path = GetUIPath<T>();
-                if (string.IsNullOrEmpty(path))
-                {
-                    Debug.LogError($"UIPath attribute not found for {type.Name}");
-                    return null;
-                }
-
-                // 풀에서 가져오거나 로드
-                Transform parent = uiCanvas.GetCanvasTransform(layer);
-                T ui = await uiPool.GetAsync<T>(path, parent, ct);
+                // PoolManager를 통해 UI 인스턴스 획득
+                T ui = await PoolManager.Get<T>(ct);
 
                 if (ui == null)
                 {
                     Debug.LogError($"Failed to load UI: {type.Name}");
                     return null;
                 }
+
+                // UI를 올바른 Canvas Layer로 이동
+                Transform canvasLayer = uiCanvas.GetCanvasTransform(layer);
+                ui.transform.SetParent(canvasLayer, false);
 
                 // 활성 UI로 등록
                 activeUIs[type] = ui;

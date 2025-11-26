@@ -74,9 +74,6 @@ namespace Common.UI
             uiCanvas = new UICanvas(transform);
             uiCanvas.Initialize(mainCanvasObj);
 
-            // ObjectPool 초기화 (Addressable 방식)
-            uiPool = ObjectPool<UIBase>.CreateForAddressable();
-
             // UIDimController 초기화
             dimController = new UIDimController(uiCanvas);
 
@@ -155,9 +152,6 @@ namespace Common.UI
                 // Dispose 호출로 GameFlowManager에서 등록 해제
                 // 주의: 이벤트는 구독자가 직접 해제했으므로 여기서는 건드리지 않음
             }
-
-            // 풀 정리
-            uiPool?.Clear();
 
             // Dim 정리
             dimController?.ClearAll();

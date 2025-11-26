@@ -7,6 +7,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
+using Core.Pool;
 
 namespace Common.UI
 {
@@ -36,8 +37,8 @@ namespace Common.UI
                 // 활성 UI에서 제거
                 activeUIs.Remove(type);
 
-                // 풀로 반환
-                uiPool.Return(ui);
+                // 풀로 반환 (PoolManager 사용)
+                PoolManager.Return(ui);
 
                 // Dim 숨김 (UI Stack 지원)
                 if (immediate)
@@ -53,16 +54,6 @@ namespace Common.UI
             {
                 UIInputBlocker.Instance.Unblock();
             }
-        }
-
-        /// <summary>
-        /// UIPath Attribute에서 Addressable Address를 가져옵니다.
-        /// </summary>
-        private string GetUIPath<T>() where T : UIBase
-        {
-            Type type = typeof(T);
-            UIPathAttribute attribute = (UIPathAttribute)Attribute.GetCustomAttribute(type, typeof(UIPathAttribute));
-            return attribute?.AddressableName;
         }
 
         /// <summary>
