@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Core.Utilities.GameLogger;
@@ -24,14 +24,6 @@ namespace Core.Pool
                 Component = component;
                 Address = address;
             }
-        }
-
-        /// <summary>
-        /// 제네릭 타입 캐싱 (typeof() 호출 비용 절감)
-        /// </summary>
-        private static class TypeCache<TComponent> where TComponent : T
-        {
-            public static readonly Type Type = typeof(TComponent);
         }
 
         // 타입별 풀 관리 (타입 → Queue)
@@ -92,18 +84,7 @@ namespace Core.Pool
         public void Store<TComponent>(T component, string address) where TComponent : T
         {
             Type type = TypeCache<TComponent>.Type;
-
-            // 풀 가져오기 또는 생성
-            if (!pools.TryGetValue(type, out var pool))
-            {
-                pool = new Queue<PoolItem>();
-                pools[type] = pool;
-            }
-
-            pool.Enqueue(new PoolItem(component, address));
-
-            int maxSize = GetMaxSize(type);
-            Log($"[{poolName}] 반환: {type.Name} (풀: {pool.Count}/{maxSize})");
+            StoreByType(component, type, address);
         }
 
         /// <summary>
@@ -135,14 +116,7 @@ namespace Core.Pool
         public bool IsFull<TComponent>() where TComponent : T
         {
             Type type = TypeCache<TComponent>.Type;
-
-            if (!pools.TryGetValue(type, out var pool))
-            {
-                return false;
-            }
-
-            int maxSize = GetMaxSize(type);
-            return pool.Count >= maxSize;
+            return IsFullByType(type);
         }
 
         /// <summary>

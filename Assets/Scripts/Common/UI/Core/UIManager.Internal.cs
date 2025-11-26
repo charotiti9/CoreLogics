@@ -38,7 +38,7 @@ namespace Common.UI
                 activeUIs.Remove(type);
 
                 // 풀로 반환 (PoolManager 사용)
-                PoolManager.Return(ui);
+                PoolManager.ReturnToPool(ui);
 
                 // Dim 숨김 (UI Stack 지원)
                 if (immediate)

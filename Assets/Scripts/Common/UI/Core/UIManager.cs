@@ -69,7 +69,7 @@ namespace Common.UI
                 UIInputBlocker.Instance.Block();
 
                 // PoolManager를 통해 UI 인스턴스 획득
-                T ui = await PoolManager.Get<T>(ct);
+                T ui = await PoolManager.GetFromPool<T>(ct);
 
                 if (ui == null)
                 {

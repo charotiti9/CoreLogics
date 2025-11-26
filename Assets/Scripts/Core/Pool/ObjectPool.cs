@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -19,19 +19,12 @@ namespace Core.Pool
         /// 풀에 이 개수 이상의 인스턴스가 쌓이면 추가 반환되는 인스턴스는 파괴됩니다.
         /// </summary>
         private const int DEFAULT_MAX_POOL_SIZE = 10;
-        /// <summary>
-        /// 제네릭 타입 캐싱 (typeof() 호출 비용 절감)
-        /// 제네릭 정적 클래스는 타입별로 한 번만 생성되므로 캐싱에 최적화
-        /// </summary>
-        private static class TypeCache<TComponent> where TComponent : T
-        {
-            public static readonly Type Type = typeof(TComponent);
-        }
 
         // 서브 클래스들
         private readonly PrefabCache<T> prefabCache;
         private readonly PoolStorage<T> storage;
         private readonly InstanceLifecycle<T> lifecycle;
+        private readonly InstanceTracker<T> tracker;
 
         // Pool Container (Transform 관리)
         private Transform poolContainer;
@@ -47,7 +40,8 @@ namespace Core.Pool
         private ObjectPool(
             Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
             Action<string> prefabReleaser,
-            int defaultMaxSize)
+            int defaultMaxSize,
+            bool dontDestroyOnLoad)
         {
             this.poolName = $"ObjectPool<{typeof(T).Name}>";
 
@@ -55,13 +49,20 @@ namespace Core.Pool
             this.prefabCache = new PrefabCache<T>(prefabLoader, prefabReleaser, poolName);
             this.storage = new PoolStorage<T>(defaultMaxSize, poolName);
             this.lifecycle = new InstanceLifecycle<T>(poolName);
+            this.tracker = new InstanceTracker<T>();
 
-            // Pool Container 생성 (DontDestroyOnLoad)
+            // Pool Container 생성
             GameObject container = new GameObject($"[Pool] {this.poolName}");
-            GameObject.DontDestroyOnLoad(container);
+
+            // DontDestroyOnLoad 옵션 적용
+            if (dontDestroyOnLoad)
+            {
+                GameObject.DontDestroyOnLoad(container);
+            }
+
             poolContainer = container.transform;
 
-            Log($"[{this.poolName}] 풀 생성됨 (기본 최대 크기: {defaultMaxSize})");
+            Log($"[{this.poolName}] 풀 생성됨 (기본 최대 크기: {defaultMaxSize}, DontDestroyOnLoad: {dontDestroyOnLoad})");
         }
 
         /// <summary>
@@ -69,13 +70,15 @@ namespace Core.Pool
         /// 프리팹 로드/해제를 AddressableManager로 자동 처리합니다.
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
         /// <returns>Addressable 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
+        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => Core.Addressable.AddressableManager.Instance.LoadAssetAsync<GameObject>(address, ct),
                 prefabReleaser: (address) => Core.Addressable.AddressableManager.Instance.Release(address),
-                defaultMaxSize: defaultMaxSize
+                defaultMaxSize: defaultMaxSize,
+                dontDestroyOnLoad: dontDestroyOnLoad
             );
         }
 
@@ -84,13 +87,15 @@ namespace Core.Pool
         /// 프리팹 로드를 Resources.Load로 처리하며, 해제는 자동입니다.
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
         /// <returns>Resources 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForResources(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
+        public static ObjectPool<T> CreateForResources(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => UniTask.FromResult(Resources.Load<GameObject>(address)),
                 prefabReleaser: null, // Resources는 명시적 해제 불필요
-                defaultMaxSize: defaultMaxSize
+                defaultMaxSize: defaultMaxSize,
+                dontDestroyOnLoad: dontDestroyOnLoad
             );
         }
 
@@ -101,13 +106,15 @@ namespace Core.Pool
         /// <param name="prefabLoader">프리팹 로드 함수</param>
         /// <param name="prefabReleaser">프리팹 해제 콜백 (옵션)</param>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
+        /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
         /// <returns>커스텀 ObjectPool</returns>
         public static ObjectPool<T> CreateCustom(
             Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
             Action<string> prefabReleaser = null,
-            int defaultMaxSize = DEFAULT_MAX_POOL_SIZE)
+            int defaultMaxSize = DEFAULT_MAX_POOL_SIZE,
+            bool dontDestroyOnLoad = false)
         {
-            return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize);
+            return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize, dontDestroyOnLoad);
         }
 
         #endregion
@@ -134,27 +141,30 @@ namespace Core.Pool
         /// </summary>
         /// <typeparam name="TComponent">가져올 Component 타입</typeparam>
         /// <param name="address">리소스 Address</param>
-        /// <param name="parent">부모 Transform</param>
+        /// <param name="parent">부모 Transform (null이면 poolContainer 사용)</param>
+        /// <param name="usePoolContainer">Pool Container 사용 여부</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>Component 인스턴스</returns>
-        public async UniTask<TComponent> GetAsync<TComponent>(string address, Transform parent, CancellationToken ct) where TComponent : T
+        public async UniTask<TComponent> GetAsync<TComponent>(string address, Transform parent, bool usePoolContainer, CancellationToken ct) where TComponent : T
         {
             // 1. 풀에서 재사용 시도
             if (storage.TryTake<TComponent>(out T component, out string pooledAddress))
             {
-                lifecycle.Activate(component, parent);
+                // usePoolContainer가 true면 poolContainer 사용, 아니면 parent 사용
+                Transform targetParent = usePoolContainer ? poolContainer : parent;
+                lifecycle.Activate(component, targetParent);
                 return component as TComponent;
             }
 
             // 2. 새로 로드
-            return await LoadNewAsync<TComponent>(address, parent, ct);
+            return await LoadNewAsync<TComponent>(address, parent, usePoolContainer, ct);
         }
 
         /// <summary>
         /// 새로운 인스턴스를 로드합니다.
         /// 프리팹은 캐시되어 중복 로드를 방지합니다.
         /// </summary>
-        private async UniTask<TComponent> LoadNewAsync<TComponent>(string address, Transform parent, CancellationToken ct) where TComponent : T
+        private async UniTask<TComponent> LoadNewAsync<TComponent>(string address, Transform parent, bool usePoolContainer, CancellationToken ct) where TComponent : T
         {
             try
             {
@@ -163,25 +173,33 @@ namespace Core.Pool
 
                 if (prefab == null)
                 {
+                    LogError($"[{poolName}] 프리팹 로드 실패: {address} (Prefab이 null입니다)");
                     return null;
                 }
 
-                // 인스턴스 생성 및 추적
-                TComponent component = lifecycle.Create<TComponent>(prefab, parent, address);
+                // usePoolContainer가 true면 poolContainer 사용, 아니면 parent 사용
+                Transform targetParent = usePoolContainer ? poolContainer : parent;
+
+                // 인스턴스 생성 (targetParent로 생성)
+                TComponent component = lifecycle.Create<TComponent>(prefab, targetParent);
 
                 if (component == null)
                 {
+                    LogError($"[{poolName}] Component 생성 실패: {typeof(TComponent).Name} (Address: {address})");
                     return null;
                 }
 
-                // 활성화
-                lifecycle.Activate(component, parent);
+                // 추적 시작 (Type 정보 및 부모 정보 포함)
+                Type componentType = TypeCache<TComponent>.Type;
+                tracker.Track(component, address, componentType, targetParent);
+
+                // 활성화 (targetParent 사용)
+                lifecycle.Activate(component, targetParent);
 
                 // Address별 참조 카운트 증가
                 prefabCache.AddReference(address);
 
-                Type type = TypeCache<TComponent>.Type;
-                Log($"[{poolName}] 새로 생성: {type.Name} (Address: {address})");
+                Log($"[{poolName}] 새로 생성: {componentType.Name} (Address: {address})");
                 return component;
             }
             catch (OperationCanceledException)
@@ -217,12 +235,12 @@ namespace Core.Pool
             if (instance.gameObject == null)
             {
                 LogWarning($"[{poolName}] 이미 파괴된 GameObject 반환 시도");
-                lifecycle.UntrackInstance(instance);
+                tracker.Untrack(instance);
                 return;
             }
 
-            // 추적 정보 가져오기 (Address와 Type 모두)
-            if (!lifecycle.TryGetInfo(instance, out var address, out Type componentType))
+            // 추적 정보 가져오기 (Address, Type, TargetParent 모두)
+            if (!tracker.TryGetInfo(instance, out var address, out Type componentType, out Transform targetParent))
             {
                 LogWarning($"[{poolName}] 추적되지 않은 인스턴스 반환 시도");
                 lifecycle.Destroy(instance);
@@ -240,8 +258,8 @@ namespace Core.Pool
                 return;
             }
 
-            // 비활성화
-            lifecycle.Deactivate(instance, poolContainer);
+            // 비활성화 (원래 부모로 이동)
+            lifecycle.Deactivate(instance, targetParent);
 
             // 풀에 저장 (Reflection 없이 Type으로 직접 호출)
             storage.StoreByType(instance, componentType, address);
@@ -269,7 +287,7 @@ namespace Core.Pool
         /// </summary>
         private void DestroyInstance(T instance, string address)
         {
-            lifecycle.UntrackInstance(instance);
+            tracker.Untrack(instance);
             lifecycle.Destroy(instance);
             prefabCache.RemoveReference(address);
         }
@@ -286,8 +304,9 @@ namespace Core.Pool
         /// <typeparam name="TComponent">프리로드할 Component 타입</typeparam>
         /// <param name="address">리소스 Address</param>
         /// <param name="count">프리로드할 개수</param>
+        /// <param name="parent">부모 Transform (null이면 poolContainer 사용)</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask PreloadAsync<TComponent>(string address, int count, CancellationToken ct) where TComponent : T
+        public async UniTask PreloadAsync<TComponent>(string address, int count, Transform parent, CancellationToken ct) where TComponent : T
         {
             if (count <= 0)
             {
@@ -307,22 +326,29 @@ namespace Core.Pool
                 return;
             }
 
+            // parent가 null이면 poolContainer 사용
+            Transform targetParent = parent ?? poolContainer;
+
             // 인스턴스만 count 개수만큼 생성하여 풀에 추가
             for (int i = 0; i < count; i++)
             {
-                // 인스턴스 생성 및 추적
-                TComponent component = lifecycle.Create<TComponent>(prefab, poolContainer, address);
+                // 인스턴스 생성 (targetParent 사용)
+                TComponent component = lifecycle.Create<TComponent>(prefab, targetParent);
 
                 if (component == null)
                 {
                     continue;
                 }
 
+                // 추적 시작 (Type 정보 및 부모 정보 포함)
+                Type componentType = TypeCache<TComponent>.Type;
+                tracker.Track(component, address, componentType, targetParent);
+
                 // Address별 참조 카운트 증가
                 prefabCache.AddReference(address);
 
-                // 비활성화 및 풀에 저장
-                lifecycle.Deactivate(component, poolContainer);
+                // 비활성화 및 풀에 저장 (부모는 이미 설정됨)
+                lifecycle.Deactivate(component, targetParent);
                 storage.Store<TComponent>(component, address);
             }
 
@@ -372,19 +398,19 @@ namespace Core.Pool
             storage.Clear();
 
             // 2. 활성 인스턴스도 파괴 (아직 Return 안 된 것들)
-            var activeInstances = lifecycle.GetAllTrackedInstances();
+            var activeInstances = tracker.GetAll();
             foreach (var (component, address) in activeInstances)
             {
                 if (component != null)
                 {
                     lifecycle.Destroy(component);
-                    lifecycle.UntrackInstance(component);
+                    tracker.Untrack(component);
                     prefabCache.RemoveReference(address);
                     activeCount++;
                 }
             }
 
-            lifecycle.Clear();
+            tracker.Clear();
             prefabCache.Clear();
 
             Log($"[{poolName}] 전체 풀 비움: 풀링 {pooledCount}개, 활성 {activeCount}개 파괴");
@@ -407,7 +433,7 @@ namespace Core.Pool
         /// </summary>
         public int GetActiveCount()
         {
-            return lifecycle.GetTrackedCount();
+            return tracker.Count;
         }
 
         /// <summary>
@@ -416,7 +442,7 @@ namespace Core.Pool
         public void PrintDebugInfo()
         {
             Log($"=== [{poolName}] 디버그 정보 ===");
-            Log($"총 추적 인스턴스: {lifecycle.GetTrackedCount()}");
+            Log($"총 추적 인스턴스: {tracker.Count}");
             Log($"캐시된 프리팹: {prefabCache.GetCachedCount()}");
 
             var storageInfo = storage.GetDebugInfo();

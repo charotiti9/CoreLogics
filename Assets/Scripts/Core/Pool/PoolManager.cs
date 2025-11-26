@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
@@ -14,23 +14,24 @@ namespace Core.Pool
     /// </summary>
     public static class PoolManager
     {
-        // 타입별 ObjectPool 캐싱 (박싱 제거: ObjectPoolBase 사용)
+        // 타입별 ObjectPool 캐싱
         private static Dictionary<Type, ObjectPoolBase> pools = new Dictionary<Type, ObjectPoolBase>();
 
-        // Parent Transform 캐싱 (이름 → Transform)
+        // Parent Transform 캐싱
         private static Dictionary<string, Transform> parentCache = new Dictionary<string, Transform>();
 
         // 초기화 여부
         private static bool isInitialized = false;
 
         /// <summary>
-        /// 타입별 Attribute 캐싱 (Reflection 비용 절감)
-        /// 제네릭 정적 클래스는 타입별로 한 번만 초기화되므로 캐싱에 최적화
+        /// 타입별 Attribute 캐싱
         /// </summary>
         private static class AttributeCache<T> where T : Component
         {
             public static readonly string Address;
             public static readonly string ParentName;
+            public static readonly bool UsePoolContainer;
+            public static readonly bool DontDestroyOnLoad;
 
             static AttributeCache()
             {
@@ -41,7 +42,7 @@ namespace Core.Pool
                 {
                     throw new InvalidOperationException(
                         $"[PoolManager] [{type.Name}] PoolAddressAttribute가 정의되지 않았습니다. " +
-                        $"클래스에 [PoolAddress(\"경로\", \"부모이름\")] Attribute를 추가하세요.");
+                        $"클래스에 [PoolAddress(\"경로\")] 또는 [PoolAddress(\"경로\", \"부모이름\")] Attribute를 추가하세요.");
                 }
 
                 if (string.IsNullOrEmpty(attribute.Address))
@@ -52,12 +53,14 @@ namespace Core.Pool
 
                 Address = attribute.Address;
                 ParentName = attribute.ParentName;
+                UsePoolContainer = attribute.UsePoolContainer;
+                DontDestroyOnLoad = attribute.DontDestroyOnLoad;
             }
         }
 
         /// <summary>
-        /// PoolManager 초기화 (내부 전용)
-        /// Get/Preload 메서드에서 자동으로 호출됩니다.
+        /// PoolManager 초기화
+        /// Get/Preload 메서드에서 자동으로 호출
         /// </summary>
         private static void Initialize()
         {
@@ -91,27 +94,38 @@ namespace Core.Pool
 
         /// <summary>
         /// 풀에서 인스턴스를 가져오거나 새로 로드합니다.
-        /// Attribute에서 address와 parentName을 자동으로 추출합니다.
+        /// Attribute에서 address와 부모 설정을 자동으로 추출합니다.
         /// </summary>
         /// <typeparam name="T">가져올 Component 타입</typeparam>
         /// <param name="ct">CancellationToken</param>
         /// <returns>Component 인스턴스</returns>
-        public static async UniTask<T> Get<T>(CancellationToken ct) where T : Component
+        public static async UniTask<T> GetFromPool<T>(CancellationToken ct) where T : Component
         {
             Initialize();
 
             // 1. Attribute 추출 (캐시됨)
             string address = AttributeCache<T>.Address;
-            string parentName = AttributeCache<T>.ParentName;
+            bool usePoolContainer = AttributeCache<T>.UsePoolContainer;
 
-            // 2. Parent Transform 검색 또는 생성
-            Transform parent = GetOrCreateParent(parentName);
+            // 2. Parent 결정
+            Transform parent;
+            if (usePoolContainer)
+            {
+                // Pool Container 사용 (null로 전달하면 ObjectPool이 poolContainer 사용)
+                parent = null;
+            }
+            else
+            {
+                // 사용자 지정 부모 사용
+                string parentName = AttributeCache<T>.ParentName;
+                parent = GetOrCreateParent(parentName);
+            }
 
             // 3. ObjectPool 가져오기 또는 생성
             ObjectPool<Component> pool = GetOrCreatePool<T>();
 
             // 4. 인스턴스 가져오기
-            return await pool.GetAsync<T>(address, parent, ct);
+            return await pool.GetAsync<T>(address, parent, usePoolContainer, ct);
         }
 
         /// <summary>
@@ -119,7 +133,7 @@ namespace Core.Pool
         /// </summary>
         /// <typeparam name="T">반환할 Component 타입</typeparam>
         /// <param name="instance">반환할 인스턴스</param>
-        public static void Return<T>(T instance) where T : Component
+        public static void ReturnToPool<T>(T instance) where T : Component
         {
             if (!isInitialized)
             {
@@ -152,29 +166,45 @@ namespace Core.Pool
 
         /// <summary>
         /// 특정 타입의 인스턴스를 미리 로드하여 풀에 채웁니다.
+        /// GetFromPool과 동일한 부모 아래에 프리로드됩니다.
         /// </summary>
         /// <typeparam name="T">프리로드할 Component 타입</typeparam>
         /// <param name="count">프리로드할 개수</param>
         /// <param name="ct">CancellationToken</param>
-        public static async UniTask Preload<T>(int count, CancellationToken ct) where T : Component
+        public static async UniTask PreloadPool<T>(int count, CancellationToken ct) where T : Component
         {
             Initialize();
 
             // 1. Attribute 추출 (캐시됨)
             string address = AttributeCache<T>.Address;
+            bool usePoolContainer = AttributeCache<T>.UsePoolContainer;
 
-            // 2. ObjectPool 가져오기 또는 생성
+            // 2. Parent 결정 (Get과 동일한 부모 사용)
+            Transform parent;
+            if (usePoolContainer)
+            {
+                // Pool Container 사용
+                parent = null;
+            }
+            else
+            {
+                // 사용자 지정 부모 사용
+                string parentName = AttributeCache<T>.ParentName;
+                parent = GetOrCreateParent(parentName);
+            }
+
+            // 3. ObjectPool 가져오기 또는 생성
             ObjectPool<Component> pool = GetOrCreatePool<T>();
 
-            // 3. 프리로드
-            await pool.PreloadAsync<T>(address, count, ct);
+            // 4. 프리로드 (parent 전달)
+            await pool.PreloadAsync<T>(address, count, parent, ct);
         }
 
         /// <summary>
         /// 특정 타입의 풀을 비웁니다.
         /// </summary>
         /// <typeparam name="T">비울 Component 타입</typeparam>
-        public static void ClearType<T>() where T : Component
+        public static void ClearPoolType<T>() where T : Component
         {
             if (!isInitialized)
             {
@@ -200,7 +230,7 @@ namespace Core.Pool
         /// <summary>
         /// 모든 풀을 비웁니다.
         /// </summary>
-        public static void Clear()
+        public static void ClearAllPools()
         {
             if (!isInitialized)
             {
@@ -270,17 +300,20 @@ namespace Core.Pool
         {
             Type type = typeof(T);
 
-            // 캐시 확인 (박싱 없음)
+            // 캐시 확인
             if (pools.TryGetValue(type, out ObjectPoolBase poolBase))
             {
                 return poolBase as ObjectPool<Component>;
             }
 
+            // DontDestroyOnLoad 옵션 가져오기
+            bool dontDestroyOnLoad = AttributeCache<T>.DontDestroyOnLoad;
+
             // 새로 생성
-            ObjectPool<Component> newPool = ObjectPool<Component>.CreateForAddressable();
+            ObjectPool<Component> newPool = ObjectPool<Component>.CreateForAddressable(dontDestroyOnLoad: dontDestroyOnLoad);
             pools[type] = newPool;
 
-            Log($"[PoolManager] ObjectPool 생성: {type.Name}");
+            Log($"[PoolManager] ObjectPool 생성: {type.Name} (DontDestroyOnLoad: {dontDestroyOnLoad})");
 
             return newPool;
         }
