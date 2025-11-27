@@ -5,29 +5,19 @@ using UnityEngine.UI;
 namespace Common.UI
 {
     /// <summary>
-    /// MainCanvas 기반 레이어별 Nested Canvas 관리
-    /// MainCanvas 하나에 레이어별 Canvas가 하위 구조로 존재합니다.
+    /// MainCanvas 기반 레이어별 GameObject 관리
+    /// MainCanvas(Canvas) 하나에 레이어별 GameObject(RectTransform)가 하위 구조로 존재합니다.
     /// </summary>
     public class UICanvas
     {
         // Enum.GetValues() 캐싱 (성능 최적화)
         private static readonly UILayer[] AllLayers = (UILayer[])System.Enum.GetValues(typeof(UILayer));
 
-        private readonly Dictionary<UILayer, Canvas> layerCanvases = new Dictionary<UILayer, Canvas>();
+        private readonly Dictionary<UILayer, RectTransform> layerTransforms = new Dictionary<UILayer, RectTransform>();
         private Canvas mainCanvas;
-        private Transform rootTransform;
 
         /// <summary>
-        /// UICanvas를 생성합니다.
-        /// </summary>
-        /// <param name="rootTransform">UIManager의 Transform</param>
-        public UICanvas(Transform rootTransform)
-        {
-            this.rootTransform = rootTransform;
-        }
-
-        /// <summary>
-        /// MainCanvas 프리팹에서 레이어별 Canvas를 찾아서 초기화합니다.
+        /// MainCanvas 프리팹에서 레이어별 GameObject를 찾아서 초기화합니다.
         /// </summary>
         /// <param name="mainCanvasObject">MainCanvas GameObject</param>
         public void Initialize(GameObject mainCanvasObject = null)
@@ -47,7 +37,7 @@ namespace Common.UI
                 return;
             }
 
-            // 레이어별 Canvas 찾기
+            // 레이어별 GameObject 찾기 (Canvas가 아닌 RectTransform만 있으면 됨)
             foreach (UILayer layer in AllLayers)
             {
                 string layerName = layer.ToString();
@@ -55,15 +45,15 @@ namespace Common.UI
 
                 if (layerTransform != null)
                 {
-                    Canvas layerCanvas = layerTransform.GetComponent<Canvas>();
+                    RectTransform rectTransform = layerTransform.GetComponent<RectTransform>();
 
-                    if (layerCanvas != null)
+                    if (rectTransform != null)
                     {
-                        layerCanvases[layer] = layerCanvas;
+                        layerTransforms[layer] = rectTransform;
                     }
                     else
                     {
-                        Debug.LogError($"Canvas component not found on layer {layerName}!");
+                        Debug.LogError($"RectTransform component not found on layer {layerName}!");
                     }
                 }
                 else
@@ -72,48 +62,35 @@ namespace Common.UI
                 }
             }
 
-            Debug.Log($"UICanvas initialized with {layerCanvases.Count} layers");
+            Debug.Log($"UICanvas initialized with {layerTransforms.Count} layers");
         }
 
         /// <summary>
-        /// 특정 레이어의 Canvas를 반환합니다.
+        /// 특정 레이어의 MainCanvas를 반환합니다.
+        /// 모든 레이어는 하나의 MainCanvas를 공유합니다.
         /// </summary>
-        /// <param name="layer">레이어</param>
-        /// <returns>Canvas</returns>
+        /// <param name="layer">레이어 (사용하지 않지만 하위 호환성 유지)</param>
+        /// <returns>MainCanvas</returns>
         public Canvas GetCanvas(UILayer layer)
         {
-            if (layerCanvases.TryGetValue(layer, out Canvas canvas))
-            {
-                return canvas;
-            }
-
-            Debug.LogError($"Canvas for layer {layer} not found!");
-            return null;
+            // 모든 레이어는 MainCanvas를 공유
+            return mainCanvas;
         }
 
         /// <summary>
         /// 특정 레이어의 Transform을 반환합니다. (UI 부모로 사용)
         /// </summary>
         /// <param name="layer">레이어</param>
-        /// <returns>Transform</returns>
+        /// <returns>RectTransform</returns>
         public Transform GetCanvasTransform(UILayer layer)
         {
-            Canvas canvas = GetCanvas(layer);
-            return canvas != null ? canvas.transform : null;
-        }
-
-        /// <summary>
-        /// 특정 레이어의 sortingOrder를 설정합니다.
-        /// </summary>
-        /// <param name="layer">레이어</param>
-        /// <param name="order">sortingOrder 값</param>
-        public void SetSortingOrder(UILayer layer, int order)
-        {
-            Canvas canvas = GetCanvas(layer);
-            if (canvas != null)
+            if (layerTransforms.TryGetValue(layer, out RectTransform rectTransform))
             {
-                canvas.sortingOrder = order;
+                return rectTransform;
             }
+
+            Debug.LogError($"Layer {layer} not found!");
+            return null;
         }
     }
 }

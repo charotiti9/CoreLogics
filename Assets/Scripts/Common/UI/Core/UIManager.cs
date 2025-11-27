@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -16,20 +16,85 @@ namespace Common.UI
     /// <summary>
     /// UI 관리 싱글톤
     /// 모든 UI의 생성, 표시, 숨김, 제거를 중앙에서 관리합니다.
-    /// LazyMonoSingleton을 사용하여 자동 생성 및 관리됩니다.
+    ///
+    /// 사용법:
+    /// 1. 게임 시작 시 명시적 초기화:
+    ///    await UIManager.CreateAsync(cancellationToken);
+    ///
+    /// 2. UI 사용:
+    ///    await UIManager.Instance.ShowAsync<MyUI>(...);
     /// </summary>
-    public partial class UIManager : LazyMonoSingleton<UIManager>
+    public partial class UIManager : MonoBehaviour
     {
+        // 싱글톤 인스턴스
+        private static UIManager _instance;
+
+        /// <summary>
+        /// UIManager 싱글톤 인스턴스
+        /// CreateAsync()로 초기화한 후 사용하세요.
+        /// </summary>
+        public static UIManager Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    throw new InvalidOperationException(
+                        "[UIManager] UIManager가 초기화되지 않았습니다.\n\n" +
+                        "게임 시작 시 다음과 같이 초기화하세요:\n" +
+                        "await UIManager.CreateAsync(cancellationToken);\n\n" +
+                        "예시:\n" +
+                        "public class GameBootstrap : MonoBehaviour\n" +
+                        "{\n" +
+                        "    async void Start()\n" +
+                        "    {\n" +
+                        "        var cts = new CancellationTokenSource();\n" +
+                        "        await UIManager.CreateAsync(cts.Token);\n" +
+                        "    }\n" +
+                        "}");
+                }
+                return _instance;
+            }
+        }
+
+        /// <summary>
+        /// UIManager를 생성하고 초기화합니다.
+        /// 게임 시작 시 한 번만 호출하세요.
+        /// </summary>
+        /// <param name="ct">CancellationToken</param>
+        /// <returns>초기화된 UIManager 인스턴스</returns>
+        public static async UniTask<UIManager> CreateAsync(CancellationToken ct = default)
+        {
+            if (_instance != null)
+            {
+                Debug.LogWarning("[UIManager] 이미 초기화되어 있습니다.");
+                return _instance;
+            }
+
+            // GameObject 생성
+            GameObject go = new GameObject("[UIManager]");
+            UIManager manager = go.AddComponent<UIManager>();
+
+            // 비동기 초기화
+            await manager.InitializeAsync(ct);
+
+            // 싱글톤 등록
+            _instance = manager;
+
+            // DontDestroyOnLoad 설정
+            DontDestroyOnLoad(go);
+
+            Debug.Log("[UIManager] 초기화 완료");
+
+            return manager;
+        }
+
         // MainCanvas Addressable Address
         private const string MAIN_CANVAS_ADDRESS = "MainCanvas";
 
-        // MainCanvas 핸들 (메모리 관리용)
+        // MainCanvas 핸들
         private AsyncOperationHandle<GameObject> mainCanvasHandle;
 
-        /// <summary>
-        /// UI Input Actions Asset
-        /// Inspector에서 할당하거나, 없으면 경고가 출력됩니다.
-        /// </summary>
         [SerializeField]
         private InputActionAsset uiInputActions;
 
@@ -83,7 +148,6 @@ namespace Common.UI
 
                 // 활성 UI로 등록
                 activeUIs[type] = ui;
-                ui.ParentCanvas = uiCanvas.GetCanvas(layer);
 
                 // Dim 표시 (UI Stack 지원)
                 if (useDim)

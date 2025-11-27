@@ -1,11 +1,12 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using DG.Tweening;
 
 namespace Common.UI
 {
     /// <summary>
-    /// UI 애니메이션 베이스 클래스
+    /// UI 애니메이션 베이스 클래스 (DOTween 기반)
     /// </summary>
     public abstract class UIAnimation
     {
@@ -18,13 +19,14 @@ namespace Common.UI
     }
 
     /// <summary>
-    /// 페이드 인/아웃 애니메이션
+    /// 페이드 인/아웃 애니메이션 (DOTween 기반)
     /// </summary>
     public class UIFadeAnimation : UIAnimation
     {
         private readonly float fromAlpha;
         private readonly float toAlpha;
         private readonly float duration;
+        private readonly Ease ease;
 
         /// <summary>
         /// 페이드 애니메이션을 생성합니다.
@@ -32,11 +34,13 @@ namespace Common.UI
         /// <param name="fromAlpha">시작 알파값 (0~1)</param>
         /// <param name="toAlpha">종료 알파값 (0~1)</param>
         /// <param name="duration">애니메이션 지속 시간 (초)</param>
-        public UIFadeAnimation(float fromAlpha, float toAlpha, float duration)
+        /// <param name="ease">Easing 타입</param>
+        public UIFadeAnimation(float fromAlpha, float toAlpha, float duration, Ease ease = Ease.Linear)
         {
             this.fromAlpha = fromAlpha;
             this.toAlpha = toAlpha;
             this.duration = duration;
+            this.ease = ease;
         }
 
         public override async UniTask PlayAsync(RectTransform target, CancellationToken ct)
@@ -47,19 +51,13 @@ namespace Common.UI
                 canvasGroup = target.gameObject.AddComponent<CanvasGroup>();
             }
 
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                ct.ThrowIfCancellationRequested();
+            // 시작 알파값 설정
+            canvasGroup.alpha = fromAlpha;
 
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                canvasGroup.alpha = Mathf.Lerp(fromAlpha, toAlpha, t);
-
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-            }
-
-            canvasGroup.alpha = toAlpha;
+            // DOTween으로 페이드 애니메이션
+            await canvasGroup.DOFade(toAlpha, duration)
+                .SetEase(ease)
+                .ToUniTask(cancellationToken: ct);
         }
     }
 
@@ -75,7 +73,7 @@ namespace Common.UI
     }
 
     /// <summary>
-    /// 슬라이드 애니메이션
+    /// 슬라이드 애니메이션 (DOTween 기반)
     /// </summary>
     public class UISlideAnimation : UIAnimation
     {
@@ -83,6 +81,7 @@ namespace Common.UI
         private readonly float distance;
         private readonly float duration;
         private readonly bool isShow;
+        private readonly Ease ease;
 
         /// <summary>
         /// 슬라이드 애니메이션을 생성합니다.
@@ -91,12 +90,14 @@ namespace Common.UI
         /// <param name="distance">이동 거리 (픽셀)</param>
         /// <param name="duration">애니메이션 지속 시간 (초)</param>
         /// <param name="isShow">표시 애니메이션 여부 (true: 표시, false: 숨김)</param>
-        public UISlideAnimation(SlideDirection direction, float distance, float duration, bool isShow)
+        /// <param name="ease">Easing 타입</param>
+        public UISlideAnimation(SlideDirection direction, float distance, float duration, bool isShow, Ease ease = Ease.OutQuad)
         {
             this.direction = direction;
             this.distance = distance;
             this.duration = duration;
             this.isShow = isShow;
+            this.ease = ease;
         }
 
         public override async UniTask PlayAsync(RectTransform target, CancellationToken ct)
@@ -110,19 +111,10 @@ namespace Common.UI
             // 시작 위치 설정
             target.anchoredPosition = fromPos;
 
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                target.anchoredPosition = Vector2.Lerp(fromPos, toPos, t);
-
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-            }
-
-            target.anchoredPosition = toPos;
+            // DOTween으로 슬라이드 애니메이션
+            await target.DOAnchorPos(toPos, duration)
+                .SetEase(ease)
+                .ToUniTask(cancellationToken: ct);
         }
 
         private Vector2 GetOffsetByDirection(SlideDirection dir, float dist)
@@ -144,13 +136,14 @@ namespace Common.UI
     }
 
     /// <summary>
-    /// 스케일 애니메이션
+    /// 스케일 애니메이션 (DOTween 기반)
     /// </summary>
     public class UIScaleAnimation : UIAnimation
     {
         private readonly Vector3 fromScale;
         private readonly Vector3 toScale;
         private readonly float duration;
+        private readonly Ease ease;
 
         /// <summary>
         /// 스케일 애니메이션을 생성합니다.
@@ -158,35 +151,29 @@ namespace Common.UI
         /// <param name="fromScale">시작 스케일</param>
         /// <param name="toScale">종료 스케일</param>
         /// <param name="duration">애니메이션 지속 시간 (초)</param>
-        public UIScaleAnimation(Vector3 fromScale, Vector3 toScale, float duration)
+        /// <param name="ease">Easing 타입</param>
+        public UIScaleAnimation(Vector3 fromScale, Vector3 toScale, float duration, Ease ease = Ease.OutBack)
         {
             this.fromScale = fromScale;
             this.toScale = toScale;
             this.duration = duration;
+            this.ease = ease;
         }
 
         public override async UniTask PlayAsync(RectTransform target, CancellationToken ct)
         {
+            // 시작 스케일 설정
             target.localScale = fromScale;
 
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                target.localScale = Vector3.Lerp(fromScale, toScale, t);
-
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-            }
-
-            target.localScale = toScale;
+            // DOTween으로 스케일 애니메이션
+            await target.DOScale(toScale, duration)
+                .SetEase(ease)
+                .ToUniTask(cancellationToken: ct);
         }
     }
 
     /// <summary>
-    /// 여러 애니메이션을 순차적으로 재생
+    /// 여러 애니메이션을 순차적으로 재생 (DOTween Sequence 기반)
     /// </summary>
     public class UISequenceAnimation : UIAnimation
     {
@@ -203,6 +190,7 @@ namespace Common.UI
 
         public override async UniTask PlayAsync(RectTransform target, CancellationToken ct)
         {
+            // 각 애니메이션을 순차적으로 실행
             foreach (var animation in animations)
             {
                 ct.ThrowIfCancellationRequested();

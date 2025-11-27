@@ -14,10 +14,10 @@ namespace Common.UI
     public partial class UIManager
     {
         /// <summary>
-        /// 비동기 초기화 (권장)
-        /// LazyMonoSingleton의 Initialize()는 동기이므로, 별도의 비동기 초기화 메서드 제공
+        /// UIManager를 비동기로 초기화합니다.
+        /// CreateAsync()에서 자동으로 호출되므로 직접 호출하지 마세요.
         /// </summary>
-        public async UniTask InitializeAsync(CancellationToken ct = default)
+        internal async UniTask InitializeAsync(CancellationToken ct = default)
         {
             if (isInitialized)
             {
@@ -34,29 +34,7 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// 동기 초기화 (LazyMonoSingleton의 Initialize 오버라이드)
-        /// Fallback 생성만 가능합니다.
-        /// </summary>
-        protected override void Initialize()
-        {
-            if (isInitialized)
-            {
-                return;
-            }
-
-            Debug.LogWarning("Synchronous Initialize() is deprecated. Use InitializeAsync() instead.");
-
-            // 씬에서 찾거나 Fallback 생성
-            GameObject mainCanvasObj = FindExistingOrCreateFallback();
-
-            // 공통 초기화 실행
-            InitializeInternal(mainCanvasObj);
-
-            Debug.Log("UIManager initialized synchronously (fallback mode)");
-        }
-
-        /// <summary>
-        /// 공통 초기화 로직 (동기/비동기 모두 사용)
+        /// 공통 초기화 로직
         /// </summary>
         private void InitializeInternal(GameObject mainCanvasObj)
         {
@@ -71,7 +49,7 @@ namespace Common.UI
             }
 
             // UICanvas 초기화
-            uiCanvas = new UICanvas(transform);
+            uiCanvas = new UICanvas();
             uiCanvas.Initialize(mainCanvasObj);
 
             // UIDimController 초기화
@@ -136,7 +114,7 @@ namespace Common.UI
             Debug.Log($"Resolution changed: {newResolution}, notified {activeUIs.Count} UIs");
         }
 
-        protected override void OnDestroy()
+        private void OnDestroy()
         {
             // 명시적 이벤트 구독 해제
             SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -165,8 +143,11 @@ namespace Common.UI
                 Addressables.ReleaseInstance(mainCanvasHandle);
             }
 
-            // LazyMonoSingleton의 OnDestroy 호출
-            base.OnDestroy();
+            // 싱글톤 정리
+            if (_instance == this)
+            {
+                _instance = null;
+            }
         }
     }
 }

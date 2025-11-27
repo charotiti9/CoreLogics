@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -18,6 +18,7 @@ namespace Common.UI
 
         // Dim 설정
         private const float DIM_FADE_DURATION = 0.2f; // 페이드 지속 시간
+        private const float DIM_DEFAULT_ALPHA = 0.7f;
 
         /// <summary>
         /// UIDimController를 생성합니다.
@@ -36,7 +37,7 @@ namespace Common.UI
         /// <param name="layer">레이어</param>
         /// <param name="alpha">Dim 투명도 (0~1)</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask ShowDimAsync(UIBase ui, UILayer layer, float alpha = 0.7f, CancellationToken ct = default)
+        public async UniTask ShowDimAsync(UIBase ui, UILayer layer, float alpha = DIM_DEFAULT_ALPHA, CancellationToken ct = default)
         {
             // UI Stack에 추가
             if (!dimUIStacks.ContainsKey(layer))
@@ -89,7 +90,7 @@ namespace Common.UI
         /// Dim을 표시합니다. (UI 없이 레이어만 지정)
         /// 하위 호환성을 위해 유지합니다.
         /// </summary>
-        public async UniTask ShowDimAsync(UILayer layer, float alpha = 0.7f, CancellationToken ct = default)
+        public async UniTask ShowDimAsync(UILayer layer, float alpha = DIM_DEFAULT_ALPHA, CancellationToken ct = default)
         {
             await ShowDimAsync(null, layer, alpha, ct);
         }

@@ -59,11 +59,6 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// 부모 Canvas
-        /// </summary>
-        public Canvas ParentCanvas { get; set; }
-
-        /// <summary>
         /// 표시 애니메이션
         /// null이면 즉시 표시됩니다.
         /// </summary>

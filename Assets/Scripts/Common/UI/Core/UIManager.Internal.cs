@@ -119,38 +119,25 @@ namespace Common.UI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Failed to load MainCanvas from Addressables: {ex.Message}");
+                // Fallback 생성하지 않고 명확한 에러 처리
+                throw new InvalidOperationException(
+                    $"[UIManager] MainCanvas를 찾을 수 없습니다.\n\n" +
+                    $"원인: {ex.Message}\n\n" +
+                    $"해결 방법:\n" +
+                    $"1. Addressable Groups에 '{MAIN_CANVAS_ADDRESS}' 프리팹을 등록하세요\n" +
+                    $"2. 또는 씬에 'MainCanvas' 이름의 GameObject를 배치하세요\n" +
+                    $"3. MainCanvas 구조:\n" +
+                    $"   MainCanvas (Canvas, CanvasScaler, GraphicRaycaster)\n" +
+                    $"   ├─ Background (GameObject with RectTransform)\n" +
+                    $"   ├─ HUD (GameObject with RectTransform)\n" +
+                    $"   ├─ Overlay (GameObject with RectTransform)\n" +
+                    $"   ├─ PopUp (GameObject with RectTransform)\n" +
+                    $"   ├─ System (GameObject with RectTransform)\n" +
+                    $"   └─ Transition (GameObject with RectTransform)\n" +
+                    $"   주의: 레이어들은 Canvas가 아닌 GameObject여야 합니다!\n\n" +
+                    $"Addressable 설정: Window > Asset Management > Addressables > Groups",
+                    ex);
             }
-
-            // 3. 실패 시 Fallback 생성
-            Debug.LogWarning("Creating fallback MainCanvas...");
-            return CreateFallbackMainCanvas();
-        }
-
-        /// <summary>
-        /// 씬에서 MainCanvas를 찾거나 Fallback을 생성합니다. (동기)
-        /// </summary>
-        private GameObject FindExistingOrCreateFallback()
-        {
-            // 씬에서 찾기
-            GameObject existing = GameObject.Find("MainCanvas");
-            if (existing != null)
-            {
-                return existing;
-            }
-
-            // Fallback 생성
-            Debug.LogWarning("Creating fallback MainCanvas...");
-            return CreateFallbackMainCanvas();
-        }
-
-        /// <summary>
-        /// Fallback MainCanvas 생성 (Addressable 로드 실패 시)
-        /// UICanvasFallbackFactory에 위임합니다.
-        /// </summary>
-        private GameObject CreateFallbackMainCanvas()
-        {
-            return UICanvasFallbackFactory.CreateMainCanvas(uiInputActions);
         }
     }
 }

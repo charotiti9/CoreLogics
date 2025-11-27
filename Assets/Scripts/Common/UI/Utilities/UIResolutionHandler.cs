@@ -6,6 +6,7 @@ namespace Common.UI
     /// <summary>
     /// 런타임 해상도 변경 감지 및 전파
     /// GameFlowManager의 IUpdatable 인터페이스를 통해 중앙 관리됩니다.
+    /// Application focus 이벤트와 연동하여 효율적으로 동작합니다.
     /// MonoBehaviour를 사용하지 않는 순수 C# 클래스입니다.
     /// </summary>
     public class UIResolutionHandler : IUpdatable
@@ -13,9 +14,15 @@ namespace Common.UI
         private static UIResolutionHandler instance;
         private static Vector2Int currentResolution;
 
-        // 해상도 체크 간격 (0.5초마다 체크)
-        private const float CHECK_INTERVAL = 0.5f;
+        // 해상도 체크 간격 (에디터: 0.2초, 빌드: 1초)
+        #if UNITY_EDITOR
+        private const float CHECK_INTERVAL = 0.2f;
+        #else
+        private const float CHECK_INTERVAL = 1f;
+        #endif
+
         private float elapsedTime = 0f;
+        private bool isApplicationFocused = true;
 
         /// <summary>
         /// 해상도 변경 이벤트 (인스턴스 이벤트)
@@ -75,6 +82,9 @@ namespace Common.UI
             // 현재 해상도 초기화
             currentResolution = new Vector2Int(Screen.width, Screen.height);
 
+            // Application focus 이벤트 등록
+            Application.focusChanged += instance.OnApplicationFocusChanged;
+
             // GameFlowManager에 등록
             if (GameFlowManager.IsAlive())
             {
@@ -87,11 +97,33 @@ namespace Common.UI
         }
 
         /// <summary>
+        /// Application focus 변경 시 호출됩니다.
+        /// 포커스를 다시 얻었을 때 즉시 해상도를 체크합니다.
+        /// </summary>
+        private void OnApplicationFocusChanged(bool hasFocus)
+        {
+            isApplicationFocused = hasFocus;
+
+            // 포커스를 다시 얻었을 때 즉시 체크
+            if (hasFocus)
+            {
+                CheckResolutionChange();
+            }
+        }
+
+        /// <summary>
         /// GameFlowManager에서 호출되는 업데이트 메서드
-        /// 0.5초마다 해상도 변경을 확인합니다.
+        /// 일정 간격으로 해상도 변경을 확인합니다. (에디터: 0.2초, 빌드: 1초)
+        /// 포커스가 없을 때는 체크하지 않아 성능을 절약합니다.
         /// </summary>
         public void OnUpdate(float deltaTime)
         {
+            // 포커스가 없으면 체크하지 않음
+            if (!isApplicationFocused)
+            {
+                return;
+            }
+
             elapsedTime += deltaTime;
 
             if (elapsedTime >= CHECK_INTERVAL)
@@ -121,12 +153,15 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// IDisposable 구현: GameFlowManager에서 등록 해제
+        /// IDisposable 구현: GameFlowManager에서 등록 해제 및 이벤트 정리
         /// </summary>
         public void Dispose()
         {
             if (instance == this)
             {
+                // Application focus 이벤트 해제
+                Application.focusChanged -= OnApplicationFocusChanged;
+
                 // GameFlowManager에서 등록 해제
                 if (GameFlowManager.IsAlive())
                 {
