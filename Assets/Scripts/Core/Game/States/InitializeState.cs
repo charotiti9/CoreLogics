@@ -1,0 +1,78 @@
+using System;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using Common.UI;
+
+namespace Core.Game.States
+{
+    /// <summary>
+    /// 게임 초기화 상태
+    /// 모든 매니저를 초기화하고 타이틀 화면으로 전환합니다.
+    /// </summary>
+    public class InitializeState : IState<GameContext>
+    {
+        public void Enter(GameContext context)
+        {
+            Debug.Log("[InitializeState] 게임 시스템 초기화 시작");
+
+            // 비동기 초기화 시작 (Fire-and-forget)
+            InitializeAsync(context).Forget();
+        }
+
+        /// <summary>
+        /// 비동기 초기화 로직
+        /// UIManager 및 기타 매니저들을 초기화합니다.
+        /// </summary>
+        private async UniTaskVoid InitializeAsync(GameContext context)
+        {
+            try
+            {
+                // 1. UIManager 초기화 (싱글톤이므로 UIManager.Instance로 접근)
+                Debug.Log("[InitializeState] UIManager 초기화 중...");
+                await UIManager.CreateAsync(context.CancellationToken);
+                Debug.Log("[InitializeState] UIManager 초기화 완료");
+
+                // 2. 다른 싱글톤 매니저 초기화 (예시)
+                // Debug.Log("[InitializeState] AudioManager 초기화 중...");
+                // await AudioManager.CreateAsync(context.CancellationToken);
+                // Debug.Log("[InitializeState] AudioManager 초기화 완료");
+
+                // 3. 데이터 로딩 (예시)
+                // Debug.Log("[InitializeState] 게임 데이터 로딩 중...");
+                // await LoadGameDataAsync(context.CancellationToken);
+                // Debug.Log("[InitializeState] 게임 데이터 로딩 완료");
+
+                // 4. 초기화 완료 표시
+                context.IsInitialized = true;
+                Debug.Log("[InitializeState] 모든 시스템 초기화 완료");
+
+                // 5. 다음 상태로 자동 전환 (TitleState)
+                // 주의: 실제 프로젝트에서는 TitleState를 구현해야 합니다
+                // context.StateMachine.ChangeState(new TitleState());
+
+                Debug.Log("[InitializeState] 초기화 완료. 다음 상태로 전환하세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("[InitializeState] 초기화가 취소되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[InitializeState] 초기화 실패: {ex.Message}\n{ex.StackTrace}");
+
+                // 초기화 실패 시 처리
+                // 예: 에러 UI 표시, 재시도, 게임 종료 등
+            }
+        }
+
+        public void Update(GameContext context, float deltaTime)
+        {
+            // 초기화 진행 중... (필요시 로딩 UI 업데이트)
+        }
+
+        public void Exit(GameContext context)
+        {
+            Debug.Log("[InitializeState] 상태 종료");
+        }
+    }
+}
