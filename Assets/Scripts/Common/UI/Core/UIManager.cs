@@ -208,5 +208,60 @@ namespace Common.UI
         {
             return uiCanvas.GetCanvas(layer);
         }
+
+        #region Generic API (타입 안전)
+
+        /// <summary>
+        /// UI를 표시합니다. (제네릭 버전 - 타입 안전)
+        /// </summary>
+        /// <typeparam name="TUI">UI 타입</typeparam>
+        /// <typeparam name="TData">UI 데이터 타입</typeparam>
+        /// <param name="layer">UI 레이어</param>
+        /// <param name="data">초기화 데이터</param>
+        /// <param name="useDim">Dim 사용 여부</param>
+        /// <param name="ct">CancellationToken</param>
+        /// <returns>생성된 UI 인스턴스</returns>
+        public async UniTask<TUI> ShowAsync<TUI, TData>(
+            UILayer layer,
+            TData data = null,
+            bool useDim = false,
+            CancellationToken ct = default
+        ) where TUI : UIBase<TData>
+          where TData : class
+        {
+            // object 버전 호출 (내부적으로 같은 로직 사용)
+            return await ShowAsync<TUI>(layer, data, useDim, ct);
+        }
+
+        /// <summary>
+        /// UI를 숨깁니다. (제네릭 버전)
+        /// </summary>
+        /// <typeparam name="TUI">UI 타입</typeparam>
+        /// <typeparam name="TData">UI 데이터 타입</typeparam>
+        /// <param name="immediate">즉시 숨김 여부</param>
+        public void Hide<TUI, TData>(bool immediate = false)
+            where TUI : UIBase<TData>
+            where TData : class
+        {
+            // object 버전 호출
+            Hide<TUI>(immediate);
+        }
+
+        /// <summary>
+        /// 현재 표시 중인 UI를 가져옵니다. (제네릭 버전)
+        /// </summary>
+        /// <typeparam name="TUI">UI 타입</typeparam>
+        /// <typeparam name="TData">UI 데이터 타입</typeparam>
+        /// <returns>UI 인스턴스 (없으면 null)</returns>
+        public TUI Get<TUI, TData>()
+            where TUI : UIBase<TData>
+            where TData : class
+        {
+            // object 버전 호출
+            return Get<TUI>();
+        }
+
+        #endregion
     }
 }
+

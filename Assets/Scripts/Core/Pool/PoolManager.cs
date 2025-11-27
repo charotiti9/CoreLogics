@@ -20,6 +20,9 @@ namespace Core.Pool
         // Parent Transform 캐싱
         private static Dictionary<string, Transform> parentCache = new Dictionary<string, Transform>();
 
+        // PoolParentContainer 캐싱
+        private static PoolParentContainer containerCache;
+
         // 초기화 여부
         private static bool isInitialized = false;
 
@@ -38,17 +41,40 @@ namespace Core.Pool
                 Type type = typeof(T);
                 var attribute = type.GetCustomAttribute<PoolAddressAttribute>();
 
+                // 1. Attribute 존재 여부
                 if (attribute == null)
                 {
                     throw new InvalidOperationException(
-                        $"[PoolManager] [{type.Name}] PoolAddressAttribute가 정의되지 않았습니다. " +
-                        $"클래스에 [PoolAddress(\"경로\")] 또는 [PoolAddress(\"경로\", \"부모이름\")] Attribute를 추가하세요.");
+                        $"[PoolManager] [{type.Name}] PoolAddressAttribute가 정의되지 않았습니다.\n" +
+                        $"클래스에 [PoolAddress(\"경로\")] Attribute를 추가하세요.\n" +
+                        $"예시:\n" +
+                        $"  [PoolAddress(\"UI/MyUI\")]\n" +
+                        $"  public class {type.Name} : UIBase {{ ... }}");
                 }
 
-                if (string.IsNullOrEmpty(attribute.Address))
+                // 2. Address 유효성
+                if (string.IsNullOrWhiteSpace(attribute.Address))
                 {
                     throw new InvalidOperationException(
                         $"[PoolManager] [{type.Name}] PoolAddressAttribute의 Address가 비어있습니다.");
+                }
+
+                // 3. 경로 형식 검증 (백슬래시 금지)
+                if (attribute.Address.Contains("\\"))
+                {
+                    throw new InvalidOperationException(
+                        $"[PoolManager] [{type.Name}] Address는 '\\' 대신 '/'를 사용해야 합니다.\n" +
+                        $"잘못된 주소: {attribute.Address}");
+                }
+
+                // 4. ParentName 검증
+                if (!attribute.UsePoolContainer && string.IsNullOrWhiteSpace(attribute.ParentName))
+                {
+                    throw new InvalidOperationException(
+                        $"[PoolManager] [{type.Name}] UsePoolContainer가 false인데 ParentName이 비어있습니다.\n" +
+                        $"생성자를 다음 중 하나로 사용하세요:\n" +
+                        $"  [PoolAddress(\"경로\")] - Pool Container 사용\n" +
+                        $"  [PoolAddress(\"경로\", \"부모이름\")] - 사용자 지정 부모");
                 }
 
                 Address = attribute.Address;
@@ -320,7 +346,7 @@ namespace Core.Pool
 
         /// <summary>
         /// ParentName으로 부모 Transform을 검색하거나 생성합니다.
-        /// 캐싱을 통해 반복 검색을 방지합니다.
+        /// PoolParentContainer를 활용하여 FindObjectsByType을 방지합니다.
         /// </summary>
         /// <param name="parentName">부모 GameObject의 이름</param>
         /// <returns>부모 Transform (parentName이 없으면 null)</returns>
@@ -345,35 +371,36 @@ namespace Core.Pool
                 parentCache.Remove(parentName);
             }
 
-            // 이름으로 GameObject 검색 (씬 내 모든 GameObject 검색)
-            GameObject[] allObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-            GameObject parentObj = null;
-
-            foreach (GameObject obj in allObjects)
+            // Container 찾기 (한 번만 검색)
+            if (containerCache == null)
             {
-                if (obj.name == parentName)
+                containerCache = GameObject.FindFirstObjectByType<PoolParentContainer>();
+
+                if (containerCache == null)
                 {
-                    parentObj = obj;
-                    break;
+                    // Container 없으면 생성
+                    GameObject containerObj = new GameObject("[PoolParentContainer]");
+                    containerCache = containerObj.AddComponent<PoolParentContainer>();
+                    Log("[PoolManager] PoolParentContainer가 씬에 없어 자동 생성되었습니다.");
                 }
             }
 
-            // 없으면 새로 생성
-            if (parentObj == null)
+            // Container에서 Parent 찾기
+            Transform parent = containerCache.FindParent(parentName);
+
+            // 없으면 Container 아래에 생성
+            if (parent == null)
             {
-                parentObj = new GameObject($"[Pool] {parentName}");
-                Log($"[PoolManager] Parent 생성: {parentObj.name}");
+                parent = containerCache.CreateParent(parentName);
+                Log($"[PoolManager] Parent 생성: {parent.name}");
             }
             else
             {
-                Log($"[PoolManager] Parent 발견: {parentObj.name}");
+                Log($"[PoolManager] Parent 발견: {parent.name}");
             }
-
-            Transform parent = parentObj.transform;
 
             // 캐싱
             parentCache[parentName] = parent;
-
             return parent;
         }
     }

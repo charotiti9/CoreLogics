@@ -146,66 +146,11 @@ namespace Common.UI
 
         /// <summary>
         /// Fallback MainCanvas 생성 (Addressable 로드 실패 시)
+        /// UICanvasFallbackFactory에 위임합니다.
         /// </summary>
         private GameObject CreateFallbackMainCanvas()
         {
-            GameObject mainCanvasObj = new GameObject("MainCanvas");
-
-            // Main Canvas 설정
-            Canvas mainCanvas = mainCanvasObj.AddComponent<Canvas>();
-            mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-
-            CanvasScaler scaler = mainCanvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            mainCanvasObj.AddComponent<GraphicRaycaster>();
-
-            // EventSystem 생성 (이미 존재하지 않는 경우)
-            if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                GameObject eventSystemObj = new GameObject("EventSystem");
-
-                eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
-
-                // InputSystemUIInputModule 추가 및 설정
-                var inputModule = eventSystemObj.AddComponent<InputSystemUIInputModule>();
-
-                // Input Actions Asset 연결
-                if (uiInputActions != null)
-                {
-                    inputModule.actionsAsset = uiInputActions;
-                }
-                else
-                {
-                    Debug.LogWarning("[UIManager] UI Input Actions Asset이 할당되지 않았습니다. UIManager Inspector에서 InputSystem_Actions를 할당하세요.");
-                }
-            }
-
-            // 레이어별 Nested Canvas 생성
-            foreach (UILayer layer in System.Enum.GetValues(typeof(UILayer)))
-            {
-                GameObject layerObj = new GameObject(layer.ToString());
-                layerObj.transform.SetParent(mainCanvasObj.transform);
-
-                // RectTransform 설정 (Full Screen)
-                RectTransform rect = layerObj.AddComponent<RectTransform>();
-                rect.anchorMin = Vector2.zero;
-                rect.anchorMax = Vector2.one;
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-
-                // Nested Canvas 설정
-                Canvas layerCanvas = layerObj.AddComponent<Canvas>();
-                layerCanvas.overrideSorting = true;
-                layerCanvas.sortingOrder = (int)layer;
-
-                // GraphicRaycaster 추가
-                layerObj.AddComponent<GraphicRaycaster>();
-            }
-
-            return mainCanvasObj;
+            return UICanvasFallbackFactory.CreateMainCanvas(uiInputActions);
         }
     }
 }

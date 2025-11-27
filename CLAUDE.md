@@ -347,6 +347,29 @@ foreach (var player in players)
 }
 ```
 
+### 리소스 로딩
+- **Resources 폴더 사용 금지**: Resources 폴더는 사용하지 않습니다.
+  - Resources 폴더의 모든 에셋은 빌드에 포함되어 빌드 크기가 증가합니다.
+  - 런타임에 선택적 로딩/언로딩이 불가능하여 메모리 관리가 어렵습니다.
+  - 의존성 추적이 불가능하여 유지보수가 어렵습니다.
+- **Addressable Asset System 사용**: 모든 동적 리소스 로딩은 Addressable을 사용합니다.
+  - 선택적 다운로드 및 패치 지원
+  - 메모리 관리 용이 (참조 카운팅)
+  - 의존성 자동 추적
+
+```csharp
+// ❌ 나쁜 예시: Resources 사용
+var prefab = Resources.Load<GameObject>("Prefabs/Player");
+var sprite = Resources.LoadAsync<Sprite>("UI/Icon");
+
+// ✅ 좋은 예시: Addressable 사용
+var handle = Addressables.LoadAssetAsync<GameObject>("Prefabs/Player");
+var prefab = await handle.ToUniTask(cancellationToken: ct);
+
+// 사용 후 반드시 Release
+Addressables.Release(handle);
+```
+
 ### 컴포넌트 구조
 - 단일 책임 원칙에 따라 컴포넌트를 분리합니다.
 - 느슨한 결합을 위해 인터페이스를 활용합니다.
@@ -369,3 +392,4 @@ foreach (var player in players)
 - [ ] GameFlowManager를 통한 중앙집중식 업데이트 구조를 사용했는가?
 - [ ] Unity 성능 최적화를 고려했는가?
 - [ ] LINQ를 사용하지 않고 명시적 루프를 사용했는가?
+- [ ] Resources 폴더 대신 Addressable을 사용했는가?

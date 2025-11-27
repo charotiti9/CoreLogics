@@ -300,4 +300,74 @@ namespace Common.UI
             isInitialized = false;
         }
     }
+
+    /// <summary>
+    /// 타입 안전한 데이터 초기화를 지원하는 UIBase 제네릭 버전
+    /// </summary>
+    /// <typeparam name="TData">UI 데이터 타입 (class만 허용)</typeparam>
+    public abstract class UIBase<TData> : UIBase where TData : class
+    {
+        /// <summary>
+        /// 타입 안전한 초기화 메서드
+        /// 파생 클래스에서 오버라이드하여 사용합니다.
+        /// </summary>
+        /// <param name="data">초기화 데이터</param>
+        public virtual void OnInitialize(TData data)
+        {
+            // 파생 클래스에서 오버라이드
+        }
+
+        /// <summary>
+        /// object 버전 초기화 (sealed로 재정의 방지)
+        /// 제네릭 버전으로 자동 변환합니다.
+        /// </summary>
+        /// <param name="data">초기화 데이터 (object)</param>
+        public sealed override void OnInitialize(object data)
+        {
+            // 기본 초기화 호출 (isInitialized = true 처리)
+            base.OnInitialize(data);
+
+            // 타입 체크 후 제네릭 버전 호출
+            if (data is TData typedData)
+            {
+                OnInitialize(typedData);
+            }
+            else if (data != null)
+            {
+                Debug.LogWarning(
+                    $"[UIBase<{typeof(TData).Name}>] 잘못된 데이터 타입: {data.GetType().Name}. " +
+                    $"예상 타입: {typeof(TData).Name}");
+            }
+            else
+            {
+                // data가 null이면 제네릭 버전에 null 전달
+                OnInitialize(null);
+            }
+        }
+
+        /// <summary>
+        /// Static Helper: UI를 표시합니다. (제네릭 버전)
+        /// </summary>
+        protected static async UniTask<TUI> ShowUI<TUI, TUIData>(
+            UILayer layer,
+            TUIData data = null,
+            bool useDim = false,
+            CancellationToken ct = default
+        ) where TUI : UIBase<TUIData>
+          where TUIData : class
+        {
+            return await UIManager.Instance.ShowAsync<TUI, TUIData>(layer, data, useDim, ct);
+        }
+
+        /// <summary>
+        /// Static Helper: UI를 숨깁니다. (제네릭 버전)
+        /// </summary>
+        protected static void HideUI<TUI, TUIData>(bool immediate = false)
+            where TUI : UIBase<TUIData>
+            where TUIData : class
+        {
+            UIManager.Instance.Hide<TUI, TUIData>(immediate);
+        }
+    }
 }
+

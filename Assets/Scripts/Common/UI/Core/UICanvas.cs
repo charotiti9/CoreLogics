@@ -10,6 +10,9 @@ namespace Common.UI
     /// </summary>
     public class UICanvas
     {
+        // Enum.GetValues() 캐싱 (성능 최적화)
+        private static readonly UILayer[] AllLayers = (UILayer[])System.Enum.GetValues(typeof(UILayer));
+
         private readonly Dictionary<UILayer, Canvas> layerCanvases = new Dictionary<UILayer, Canvas>();
         private Canvas mainCanvas;
         private Transform rootTransform;
@@ -45,7 +48,7 @@ namespace Common.UI
             }
 
             // 레이어별 Canvas 찾기
-            foreach (UILayer layer in System.Enum.GetValues(typeof(UILayer)))
+            foreach (UILayer layer in AllLayers)
             {
                 string layerName = layer.ToString();
                 Transform layerTransform = mainCanvasObject.transform.Find(layerName);
