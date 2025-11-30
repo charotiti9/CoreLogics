@@ -161,7 +161,16 @@ namespace Common.Audio
 
         private void ShufflePlaylist()
         {
-            shuffleIndices = new List<int>();
+            // 기존 리스트 재사용
+            if (shuffleIndices == null)
+            {
+                shuffleIndices = new List<int>(addresses.Count);
+            }
+            else
+            {
+                shuffleIndices.Clear();
+            }
+
             for (int i = 0; i < addresses.Count; i++)
             {
                 shuffleIndices.Add(i);

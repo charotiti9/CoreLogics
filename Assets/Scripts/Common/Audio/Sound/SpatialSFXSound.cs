@@ -33,7 +33,19 @@ namespace Common.Audio
             if (AudioSource == null)
             {
                 Debug.LogError("[SpatialSFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
+                return;
             }
+
+            // 3D 사운드 설정 (Prefab 설정과 무관하게 보장)
+            AudioSource.playOnAwake = false;
+            AudioSource.loop = false;
+            AudioSource.spatialBlend = 1f;  // 완전한 3D 사운드
+
+            // 거리 감쇠 설정 (AudioConfig에서 가져옴)
+            AudioSource.rolloffMode = AudioRolloffMode.Linear;
+            var config = AudioManager.Instance.Config;
+            AudioSource.minDistance = config.spatialMinDistance;
+            AudioSource.maxDistance = config.spatialMaxDistance;
         }
 
         // ========== 재생 ==========

@@ -32,12 +32,17 @@ namespace Common.Audio
         // ========== 3D 사운드 관리 ==========
         private List<SpatialSFXSound> activeSpatialSounds = new List<SpatialSFXSound>();
 
+        // ========== 초기화 상태 ==========
+        private bool isInitialized = false;
+        private UniTask initializeTask;
+
         // ========== 초기화 ==========
 
         protected override void Initialize()
         {
             base.Initialize();
-            InitializeAsync(destroyCancellationToken).Forget();
+            initializeTask = InitializeAsync(destroyCancellationToken);
+            initializeTask.Forget();
             this.RegisterToGameFlow();  // GameFlowManager에 IUpdatable 등록
         }
 
@@ -64,11 +69,23 @@ namespace Common.Audio
                 // 5. 채널 초기화 (PoolManager 사용으로 풀 생성 불필요)
                 sfxChannel.Initialize(config.initialSFXPoolSize, transform);
 
+                isInitialized = true;
                 GameLogger.Log("AudioManager initialized");
             }
             catch (Exception e)
             {
                 GameLogger.LogError($"AudioManager initialization failed: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 초기화 완료 대기
+        /// </summary>
+        private async UniTask WaitForInitializeAsync(CancellationToken ct)
+        {
+            if (!isInitialized)
+            {
+                await initializeTask.AttachExternalCancellation(ct);
             }
         }
 
@@ -79,6 +96,8 @@ namespace Common.Audio
         /// </summary>
         public async UniTask PlayBGMAsync(string address, float fadeInDuration = 0f, CancellationToken ct = default)
         {
+            await WaitForInitializeAsync(ct);
+
             // 1. 이미 같은 BGM이 재생 중이면 무시
             if (bgmSound.CurrentAddress == address && bgmSound.IsPlaying)
             {
@@ -92,14 +111,42 @@ namespace Common.Audio
                 await bgmSound.StopAsync(fadeInDuration, ct);
             }
 
-            // 3. 새 BGM 로드
-            var clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+            AudioClip clip = null;
+            bool clipLoaded = false;
 
-            // 4. 재생 (페이드 인)
-            float volume = bgmChannel.GetFinalVolume(BGMVolume);
-            await bgmSound.PlayAsync(address, clip, volume, fadeInDuration, ct);
+            try
+            {
+                // 3. 새 BGM 로드
+                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+                clipLoaded = true;
 
-            GameLogger.Log($"BGM started: {address}");
+                // 4. 재생 (페이드 인)
+                float volume = bgmChannel.GetFinalVolume(BGMVolume);
+                await bgmSound.PlayAsync(address, clip, volume, fadeInDuration, ct);
+
+                // 성공 시 clipLoaded를 false로 설정 (Release 책임이 BGMSound로 이전됨)
+                clipLoaded = false;
+
+                GameLogger.Log($"BGM started: {address}");
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 예외 던지기
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"PlayBGMAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 로드는 성공했지만 PlayAsync에서 실패한 경우에만 Release
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(address);
+                }
+            }
         }
 
         /// <summary>
@@ -107,6 +154,7 @@ namespace Common.Audio
         /// </summary>
         public async UniTask StopBGMAsync(float fadeOutDuration = 0f, CancellationToken ct = default)
         {
+            await WaitForInitializeAsync(ct);
             await bgmSound.StopAsync(fadeOutDuration, ct);
         }
 
@@ -131,12 +179,42 @@ namespace Common.Audio
         /// </summary>
         public async UniTask CrossFadeBGMAsync(string newAddress, float duration, CancellationToken ct = default)
         {
-            // 1. 새 BGM 로드
-            var newClip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(newAddress, ct);
+            await WaitForInitializeAsync(ct);
 
-            // 2. 크로스페이드 실행
-            float volume = bgmChannel.GetFinalVolume(BGMVolume);
-            await bgmSound.CrossFadeAsync(newAddress, newClip, volume, duration, ct);
+            AudioClip newClip = null;
+            bool clipLoaded = false;
+
+            try
+            {
+                // 1. 새 BGM 로드
+                newClip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(newAddress, ct);
+                clipLoaded = true;
+
+                // 2. 크로스페이드 실행
+                float volume = bgmChannel.GetFinalVolume(BGMVolume);
+                await bgmSound.CrossFadeAsync(newAddress, newClip, volume, duration, ct);
+
+                // 성공 시 clipLoaded를 false로 설정 (Release 책임이 BGMSound로 이전됨)
+                clipLoaded = false;
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 예외 던지기
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"CrossFadeBGMAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 로드는 성공했지만 CrossFadeAsync에서 실패한 경우에만 Release
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(newAddress);
+                }
+            }
         }
 
         // ========== SFX API ==========
@@ -144,8 +222,14 @@ namespace Common.Audio
         /// <summary>
         /// SFX 재생 (2D)
         /// </summary>
+        /// <param name="address">Addressable 주소</param>
+        /// <param name="volume">볼륨 (0.0 ~ 1.0)</param>
+        /// <param name="priority">우선순위 (높을수록 우선, 기본값 128)</param>
+        /// <param name="ct">CancellationToken</param>
+        /// <returns>재생된 SFXSound 객체. 우선순위가 낮아 재생이 거부된 경우 null 반환</returns>
         public async UniTask<SFXSound> PlaySFXAsync(string address, float volume = 1f, int priority = 128, CancellationToken ct = default)
         {
+            await WaitForInitializeAsync(ct);
             return await sfxChannel.PlaySFXAsync(address, volume, priority, ct);
         }
 
@@ -154,17 +238,58 @@ namespace Common.Audio
         /// </summary>
         public async UniTask PlaySFXAtPositionAsync(string address, Vector3 position, float volume = 1f, CancellationToken ct = default)
         {
-            var clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+            await WaitForInitializeAsync(ct);
 
-            // PoolManager에서 SpatialSFXSound 획득
-            SpatialSFXSound spatialSound = await PoolManager.GetFromPool<SpatialSFXSound>(ct);
-            spatialSound.transform.position = position;
-            spatialSound.PlayAtPosition(clip, address, position, volume);
+            AudioClip clip = null;
+            bool clipLoaded = false;
+            SpatialSFXSound spatialSound = null;
+            bool soundAcquired = false;
 
-            activeSpatialSounds.Add(spatialSound);
+            try
+            {
+                // 1. 클립 로드
+                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+                clipLoaded = true;
 
-            // 재생 완료 후 자동 반환
-            WaitAndReturnSpatialSoundAsync(spatialSound, ct).Forget();
+                // 2. PoolManager에서 SpatialSFXSound 획득
+                spatialSound = await PoolManager.GetFromPool<SpatialSFXSound>(ct);
+                soundAcquired = true;
+
+                // 3. 재생
+                spatialSound.transform.position = position;
+                spatialSound.PlayAtPosition(clip, address, position, volume);
+
+                activeSpatialSounds.Add(spatialSound);
+
+                // 성공 시 책임 이전
+                clipLoaded = false;
+                soundAcquired = false;
+
+                // 재생 완료는 OnUpdate에서 처리
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 예외 던지기
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"PlaySFXAtPositionAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 실패 시 리소스 정리
+                if (soundAcquired && spatialSound != null)
+                {
+                    PoolManager.ReturnToPool(spatialSound);
+                }
+
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(address);
+                }
+            }
         }
 
         /// <summary>
@@ -182,9 +307,42 @@ namespace Common.Audio
         /// </summary>
         public async UniTask PlayVoiceAsync(string address, CancellationToken ct = default)
         {
-            var clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
-            float volume = voiceChannel.GetFinalVolume(VoiceVolume);
-            await voiceSound.PlayAsync(address, clip, volume, ct);
+            await WaitForInitializeAsync(ct);
+
+            AudioClip clip = null;
+            bool clipLoaded = false;
+
+            try
+            {
+                // 1. 클립 로드
+                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+                clipLoaded = true;
+
+                // 2. 재생
+                float volume = voiceChannel.GetFinalVolume(VoiceVolume);
+                await voiceSound.PlayAsync(address, clip, volume, ct);
+
+                // 성공 시 책임 이전 (VoiceSound가 Release 담당)
+                clipLoaded = false;
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 예외 던지기
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"PlayVoiceAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 로드는 성공했지만 PlayAsync에서 실패한 경우에만 Release
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(address);
+                }
+            }
         }
 
         /// <summary>
@@ -215,7 +373,16 @@ namespace Common.Audio
             get => masterVolume;
             set
             {
+                if (Mathf.Approximately(masterVolume, value))
+                    return;
+
                 masterVolume = Mathf.Clamp01(value);
+
+                // 모든 채널에 볼륨 변경 알림
+                bgmChannel?.MarkVolumeDirty();
+                sfxChannel?.MarkVolumeDirty();
+                voiceChannel?.MarkVolumeDirty();
+
                 SaveSettings();
             }
         }
@@ -265,7 +432,16 @@ namespace Common.Audio
             get => isMasterMuted;
             set
             {
+                if (isMasterMuted == value)
+                    return;
+
                 isMasterMuted = value;
+
+                // 모든 채널에 볼륨 변경 알림
+                bgmChannel?.MarkVolumeDirty();
+                sfxChannel?.MarkVolumeDirty();
+                voiceChannel?.MarkVolumeDirty();
+
                 SaveSettings();
             }
         }
@@ -406,20 +582,6 @@ namespace Common.Audio
             var sound = go.AddComponent<VoiceSound>();
             sound.Initialize();
             return sound;
-        }
-
-        private async UniTaskVoid WaitAndReturnSpatialSoundAsync(SpatialSFXSound sound, CancellationToken ct)
-        {
-            try
-            {
-                await sound.WaitForCompleteAsync(ct);
-            }
-            catch (OperationCanceledException) { }
-            finally
-            {
-                activeSpatialSounds.Remove(sound);
-                PoolManager.ReturnToPool(sound);  // PoolManager로 반환
-            }
         }
     }
 }

@@ -23,18 +23,11 @@ namespace Common.Audio
         [Tooltip("SFX 사운드 초기 풀 크기")]
         public int initialSFXPoolSize = 5;
 
-        [Header("일시정지 설정")]
-        [Tooltip("게임 일시정지 시 BGM 일시정지 여부")]
-        public bool pauseBGMOnGamePause = false;
+        [Header("3D 사운드 설정")]
+        [Tooltip("3D 사운드 최소 거리 (이 거리까지는 최대 볼륨)")]
+        public float spatialMinDistance = 1f;
 
-        [Tooltip("게임 일시정지 시 SFX 일시정지 여부")]
-        public bool pauseSFXOnGamePause = true;
-
-        [Header("씬 전환 설정")]
-        [Tooltip("씬 전환 시 모든 SFX 정지 여부")]
-        public bool stopSFXOnSceneChange = true;
-
-        [Tooltip("씬 전환 시 BGM 유지 여부 (같은 주소인 경우)")]
-        public bool keepBGMOnSceneChange = true;
+        [Tooltip("3D 사운드 최대 거리 (이 거리부터 볼륨 0)")]
+        public float spatialMaxDistance = 50f;
     }
 }

@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using Core.Addressable;
+using Core.Utilities;
 using System;
 using System.Threading;
 using UnityEngine;
@@ -79,6 +80,11 @@ namespace Common.Audio
             }
             catch (OperationCanceledException)
             {
+                OnPlayComplete(VoiceCompleteReason.Cancelled);
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"VoiceSound playback monitoring failed: {e.Message}");
                 OnPlayComplete(VoiceCompleteReason.Cancelled);
             }
         }

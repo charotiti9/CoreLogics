@@ -1,7 +1,8 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using Core.Addressable;
 using System.Threading;
 using UnityEngine;
+using System;
 
 namespace Common.Audio
 {
@@ -74,8 +75,19 @@ namespace Common.Audio
             // 페이드 인
             if (fadeInDuration > 0f)
             {
+                // 기존 CTS 정리
+                fadeCts?.Cancel();
+                fadeCts?.Dispose();
+
                 fadeCts = new CancellationTokenSource();
-                await fader.FadeInAsync(mainAudioSource, volume, fadeInDuration, fadeCts.Token);
+                try
+                {
+                    await fader.FadeInAsync(mainAudioSource, volume, fadeInDuration, fadeCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 취소는 정상 동작
+                }
             }
         }
 
@@ -90,9 +102,19 @@ namespace Common.Audio
             // 페이드 아웃
             if (fadeOutDuration > 0f)
             {
+                // 기존 CTS 정리
                 fadeCts?.Cancel();
+                fadeCts?.Dispose();
+
                 fadeCts = new CancellationTokenSource();
-                await fader.FadeOutAsync(mainAudioSource, fadeOutDuration, fadeCts.Token);
+                try
+                {
+                    await fader.FadeOutAsync(mainAudioSource, fadeOutDuration, fadeCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 취소는 정상 동작
+                }
             }
 
             mainAudioSource.Stop();
@@ -139,9 +161,19 @@ namespace Common.Audio
             subAudioSource.Play();
 
             // 2. 크로스페이드 (main 페이드 아웃 + sub 페이드 인)
+            // 기존 CTS 정리
             fadeCts?.Cancel();
+            fadeCts?.Dispose();
+
             fadeCts = new CancellationTokenSource();
-            await fader.CrossFadeAsync(mainAudioSource, subAudioSource, volume, duration, fadeCts.Token);
+            try
+            {
+                await fader.CrossFadeAsync(mainAudioSource, subAudioSource, volume, duration, fadeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소는 정상 동작
+            }
 
             // 3. AudioSource 교체 (핑퐁)
             mainAudioSource.Stop();
@@ -168,6 +200,18 @@ namespace Common.Audio
         {
             mainAudioSource.Stop();
             IsPlaying = false;
+        }
+
+        // ========== 정리 ==========
+
+        /// <summary>
+        /// 오브젝트 파괴 시 CancellationTokenSource 정리
+        /// </summary>
+        private void OnDestroy()
+        {
+            fadeCts?.Cancel();
+            fadeCts?.Dispose();
+            fadeCts = null;
         }
     }
 }
