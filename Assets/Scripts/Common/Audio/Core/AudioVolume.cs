@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Common.Audio
 {
@@ -6,9 +6,8 @@ namespace Common.Audio
     /// 오디오 볼륨, 음소거, 설정 관리 전담
     /// AudioManager로부터 분리하여 단일 책임 원칙 준수
     /// </summary>
-    public class AudioVolumeManager
+    public class AudioVolume
     {
-        // ========== 필드 ==========
         private AudioSettings settings;
 
         // 볼륨
@@ -28,8 +27,6 @@ namespace Common.Audio
         private AudioChannel sfxChannel;
         private AudioChannel voiceChannel;
 
-        // ========== 초기화 ==========
-
         /// <summary>
         /// AudioVolumeManager 초기화
         /// </summary>
@@ -46,7 +43,7 @@ namespace Common.Audio
             LoadSettings();
         }
 
-        // ========== 볼륨 프로퍼티 ==========
+        #region 볼륨 프로퍼티
 
         /// <summary>
         /// 마스터 볼륨 (0.0 ~ 1.0)
@@ -128,8 +125,6 @@ namespace Common.Audio
             }
         }
 
-        // ========== 음소거 프로퍼티 ==========
-
         /// <summary>
         /// 마스터 음소거
         /// 모든 채널에 영향을 줌
@@ -210,7 +205,9 @@ namespace Common.Audio
             }
         }
 
-        // ========== 설정 저장/로드 ==========
+        #endregion
+
+        #region 설정 저장/로드
 
         /// <summary>
         /// 현재 볼륨 및 음소거 설정을 저장
@@ -252,7 +249,7 @@ namespace Common.Audio
             LoadSettings();
         }
 
-        // ========== 내부 메서드 ==========
+        #endregion
 
         /// <summary>
         /// 현재 볼륨 및 음소거 설정을 채널에 적용

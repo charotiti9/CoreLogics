@@ -23,7 +23,7 @@ namespace Common.Audio
         private BGMSound bgmSound;
         private VoiceSound voiceSound;
 
-        private AudioVolumeManager volumeManager;
+        private AudioVolume volumeManager;
         [SerializeField] private AudioConfig config;
         public AudioConfig Config => config;
 
@@ -60,7 +60,7 @@ namespace Common.Audio
                 voiceSound = CreateVoiceSound();
 
                 // 4. 볼륨 매니저 초기화
-                volumeManager = new AudioVolumeManager();
+                volumeManager = new AudioVolume();
                 volumeManager.Initialize(bgmChannel, sfxChannel, voiceChannel);
 
                 isInitialized = true;
