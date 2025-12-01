@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using Core.Addressable;
 using Core.Pool;
 using System.Threading;
@@ -11,37 +11,28 @@ namespace Common.Audio
     /// 효과음을 재생하고 완료 시 자동으로 풀에 반환됩니다.
     /// </summary>
     [PoolAddress("Audio/SFXSound", "AudioSounds")]
-    public class SFXSound : MonoBehaviour, IPoolable, IAudioSound
+    public class SFXSound : AudioSoundBase, IPoolable
     {
-        // ========== 컴포넌트 ==========
-        public AudioSource AudioSource { get; private set; }
+        private AudioSource audioSource;
+        public override AudioSource AudioSource => audioSource;
 
-        // ========== 상태 ==========
-        private string currentAddress;
-        private int priority;
-        public bool IsPlaying { get; private set; }
         public float LocalVolume { get; private set; }
 
-        // ========== 완료 콜백 ==========
         private UniTaskCompletionSource completionSource;
-
-        // ========== 초기화 ==========
 
         /// <summary>
         /// SFXSound 초기화 (Prefab의 AudioSource 컴포넌트 참조)
         /// </summary>
-        public void Initialize()
+        public override void Initialize()
         {
             // AudioSource는 Prefab에 미리 포함되어 있음
-            AudioSource = GetComponent<AudioSource>();
+            audioSource = GetComponent<AudioSource>();
 
-            if (AudioSource == null)
+            if (audioSource == null)
             {
                 Debug.LogError("[SFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
             }
         }
-
-        // ========== 재생 ==========
 
         /// <summary>
         /// SFX 재생
@@ -56,8 +47,7 @@ namespace Common.Audio
             AudioSource.volume = volume;
             AudioSource.Play();
 
-            currentAddress = address;
-            this.priority = priority;
+            CurrentAddress = address;
             LocalVolume = volume;
             IsPlaying = true;
 
@@ -76,8 +66,6 @@ namespace Common.Audio
             OnPlayComplete();
         }
 
-        // ========== 완료 대기 ==========
-
         /// <summary>
         /// 재생 완료까지 대기
         /// </summary>
@@ -88,8 +76,6 @@ namespace Common.Audio
 
             await completionSource.Task.AttachExternalCancellation(ct);
         }
-
-        // ========== 완료 처리 (AudioChannel에서 호출) ==========
 
         /// <summary>
         /// 재생 완료 처리
@@ -103,8 +89,6 @@ namespace Common.Audio
 
             // 주의: Addressable 리소스 해제는 OnReturnToPool에서 처리
         }
-
-        // ========== IPoolable ==========
 
         public void OnGetFromPool()
         {
@@ -127,22 +111,7 @@ namespace Common.Audio
             completionSource = null;
 
             // Addressable 리소스 해제
-            if (!string.IsNullOrEmpty(currentAddress))
-            {
-                AddressableLoader.Instance.Release(currentAddress);
-                currentAddress = null;
-            }
-        }
-
-        // ========== IAudioSound ==========
-
-        void IAudioSound.Play(AudioClip clip, float volume, bool loop)
-        {
-            AudioSource.clip = clip;
-            AudioSource.volume = volume;
-            AudioSource.loop = loop;
-            AudioSource.Play();
-            IsPlaying = true;
+            ReleaseCurrentAddress();
         }
     }
 }

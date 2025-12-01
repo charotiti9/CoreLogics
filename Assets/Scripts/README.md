@@ -1,4 +1,4 @@
-# HojiTrain Scripts
+# Common Scripts
 
 ---
 
@@ -16,6 +16,7 @@ Scripts/
 │   ├── StateMachine/  # 상태 머신
 │   └── Utilities/     # 유틸리티
 └── Common/            # 공통 기능
+    ├── Audio/         # 오디오 관리 (BGM, SFX, Voice)
     └── UI/            # UI 관리 (레이어, 스택, Dim)
 ```
 
@@ -45,3 +46,5 @@ Scripts/
 게임 시작 씬에 배치:
 - `[GameBootstrap]` - GameBootstrap 컴포넌트
 - `[GameFlowManager]` - GameFlowManager 컴포넌트
+- `[UIManager]` - UIManager 컴포넌트
+- `[AudioManager]` - AudioManager 컴포넌트

@@ -1,12 +1,12 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Common.Audio
 {
     /// <summary>
-    /// 우선순위 기반 오디오 재생 관리
+    /// SFX 우선순위 기반 재생 관리
     /// 최대 동시 재생 수 제한 시 낮은 우선순위 사운드를 정지시킵니다.
     /// </summary>
-    public class AudioPriorityQueue
+    public class SFXPriorityQueue
     {
         private int maxConcurrentSounds;
         private List<PriorityItem> activeSounds;
@@ -17,15 +17,11 @@ namespace Common.Audio
             public int Priority;
         }
 
-        // ========== 초기화 ==========
-
-        public AudioPriorityQueue(int maxCount)
+        public SFXPriorityQueue(int maxCount)
         {
             maxConcurrentSounds = maxCount;
             activeSounds = new List<PriorityItem>(maxCount);
         }
-
-        // ========== 재생 요청 ==========
 
         /// <summary>
         /// 우선순위를 확인하고 재생 가능 여부 반환
@@ -69,8 +65,6 @@ namespace Common.Audio
             return false;
         }
 
-        // ========== 제거 ==========
-
         /// <summary>
         /// 재생 완료된 사운드 제거
         /// </summary>
@@ -85,8 +79,6 @@ namespace Common.Audio
                 }
             }
         }
-
-        // ========== 정리 ==========
 
         /// <summary>
         /// 모든 사운드 제거

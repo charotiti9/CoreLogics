@@ -1,6 +1,5 @@
 ﻿using Cysharp.Threading.Tasks;
 using Core.Addressable;
-using Core.Pool;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -15,28 +14,23 @@ namespace Common.Audio
     /// </summary>
     public class AudioManager : EagerMonoSingleton<AudioManager>, IUpdatable
     {
-        // ========== 채널 ==========
+
         private AudioChannel bgmChannel;
-        private AudioChannel sfxChannel;
+        private SFXChannel sfxChannel;
         private AudioChannel voiceChannel;
 
-        // ========== 사운드 객체 ==========
+        // 한 번에 하나만 재생되는 것들은 미리 spawn (SFX는 pooling 사용)
         private BGMSound bgmSound;
         private VoiceSound voiceSound;
 
-        // ========== 설정 ==========
-        private AudioSettings settings;
-        private AudioConfig config;
+        private AudioVolumeManager volumeManager;
+        [SerializeField] private AudioConfig config;
         public AudioConfig Config => config;
 
-        // ========== 3D 사운드 관리 ==========
-        private List<SpatialSFXSound> activeSpatialSounds = new List<SpatialSFXSound>();
-
-        // ========== 초기화 상태 ==========
         private bool isInitialized = false;
         private UniTask initializeTask;
 
-        // ========== 초기화 ==========
+        public int UpdateOrder => 10;
 
         protected override void Initialize()
         {
@@ -51,26 +45,25 @@ namespace Common.Audio
             try
             {
                 // 1. Config 로드
-                config = await AddressableLoader.Instance.LoadAssetAsync<AudioConfig>("Config/AudioConfig", ct);
+                if(config == null)
+                {
+                    config = await AddressableLoader.Instance.LoadAssetAsync<AudioConfig>("Config/AudioConfig", ct);
+                }
 
-                // 2. 설정 로드
-                settings = new AudioSettings();
-                LoadSettings();
+                // 2. 채널 생성
+                bgmChannel = new AudioChannel(AudioChannelType.BGM);
+                sfxChannel = new SFXChannel(config.maxConcurrentSFX);
+                voiceChannel = new AudioChannel(AudioChannelType.Voice);
 
-                // 3. 채널 생성
-                bgmChannel = new AudioChannel(AudioChannelType.BGM, config.maxConcurrentBGM);
-                sfxChannel = new AudioChannel(AudioChannelType.SFX, config.maxConcurrentSFX);
-                voiceChannel = new AudioChannel(AudioChannelType.Voice, config.maxConcurrentVoice);
-
-                // 4. 사운드 객체 생성 (런타임 생성)
+                // 3. 사운드 객체 생성 (런타임 생성)
                 bgmSound = CreateBGMSound();
                 voiceSound = CreateVoiceSound();
 
-                // 5. 채널 초기화 (PoolManager 사용으로 풀 생성 불필요)
-                sfxChannel.Initialize(config.initialSFXPoolSize, transform);
+                // 4. 볼륨 매니저 초기화
+                volumeManager = new AudioVolumeManager();
+                volumeManager.Initialize(bgmChannel, sfxChannel, voiceChannel);
 
                 isInitialized = true;
-                GameLogger.Log("AudioManager initialized");
             }
             catch (Exception e)
             {
@@ -89,8 +82,7 @@ namespace Common.Audio
             }
         }
 
-        // ========== BGM API ==========
-
+        #region BGM API
         /// <summary>
         /// BGM 재생 (페이드 인 지원)
         /// </summary>
@@ -216,8 +208,9 @@ namespace Common.Audio
                 }
             }
         }
+        #endregion
 
-        // ========== SFX API ==========
+        #region SFX API
 
         /// <summary>
         /// SFX 재생 (2D)
@@ -230,66 +223,16 @@ namespace Common.Audio
         public async UniTask<SFXSound> PlaySFXAsync(string address, float volume = 1f, int priority = 128, CancellationToken ct = default)
         {
             await WaitForInitializeAsync(ct);
-            return await sfxChannel.PlaySFXAsync(address, volume, priority, ct);
+            return await sfxChannel.Play2DAsync(address, volume, priority, ct);
         }
 
         /// <summary>
-        /// SFX 재생 (3D 위치, PoolManager 사용)
+        /// SFX 재생 (3D 위치)
         /// </summary>
         public async UniTask PlaySFXAtPositionAsync(string address, Vector3 position, float volume = 1f, CancellationToken ct = default)
         {
             await WaitForInitializeAsync(ct);
-
-            AudioClip clip = null;
-            bool clipLoaded = false;
-            SpatialSFXSound spatialSound = null;
-            bool soundAcquired = false;
-
-            try
-            {
-                // 1. 클립 로드
-                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
-                clipLoaded = true;
-
-                // 2. PoolManager에서 SpatialSFXSound 획득
-                spatialSound = await PoolManager.GetFromPool<SpatialSFXSound>(ct);
-                soundAcquired = true;
-
-                // 3. 재생
-                spatialSound.transform.position = position;
-                spatialSound.PlayAtPosition(clip, address, position, volume);
-
-                activeSpatialSounds.Add(spatialSound);
-
-                // 성공 시 책임 이전
-                clipLoaded = false;
-                soundAcquired = false;
-
-                // 재생 완료는 OnUpdate에서 처리
-            }
-            catch (OperationCanceledException)
-            {
-                // 취소는 예외 던지기
-                throw;
-            }
-            catch (Exception e)
-            {
-                GameLogger.LogError($"PlaySFXAtPositionAsync failed: {e.Message}");
-                throw;
-            }
-            finally
-            {
-                // 실패 시 리소스 정리
-                if (soundAcquired && spatialSound != null)
-                {
-                    PoolManager.ReturnToPool(spatialSound);
-                }
-
-                if (clipLoaded)
-                {
-                    AddressableLoader.Instance.Release(address);
-                }
-            }
+            await sfxChannel.Play3DAsync(address, position, volume, ct);
         }
 
         /// <summary>
@@ -300,7 +243,9 @@ namespace Common.Audio
             sfxChannel.StopAll();
         }
 
-        // ========== Voice API ==========
+        #endregion
+
+        #region Voice API
 
         /// <summary>
         /// Voice 재생
@@ -309,13 +254,12 @@ namespace Common.Audio
         {
             await WaitForInitializeAsync(ct);
 
-            AudioClip clip = null;
             bool clipLoaded = false;
 
             try
             {
                 // 1. 클립 로드
-                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+                AudioClip clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
                 clipLoaded = true;
 
                 // 2. 재생
@@ -361,179 +305,86 @@ namespace Common.Audio
             return await voiceSound.WaitForCompleteAsync(ct);
         }
 
-        // ========== 볼륨 제어 ==========
+        #endregion
 
-        private float masterVolume = 1f;
-        private float bgmVolume = 1f;
-        private float sfxVolume = 1f;
-        private float voiceVolume = 1f;
+        #region 볼륨 제어
 
         public float MasterVolume
         {
-            get => masterVolume;
-            set
-            {
-                if (Mathf.Approximately(masterVolume, value))
-                    return;
-
-                masterVolume = Mathf.Clamp01(value);
-
-                // 모든 채널에 볼륨 변경 알림
-                bgmChannel?.MarkVolumeDirty();
-                sfxChannel?.MarkVolumeDirty();
-                voiceChannel?.MarkVolumeDirty();
-
-                SaveSettings();
-            }
+            get => volumeManager.MasterVolume;
+            set => volumeManager.MasterVolume = value;
         }
 
         public float BGMVolume
         {
-            get => bgmVolume;
-            set
-            {
-                bgmVolume = Mathf.Clamp01(value);
-                bgmChannel.Volume = bgmVolume;
-                SaveSettings();
-            }
+            get => volumeManager.BGMVolume;
+            set => volumeManager.BGMVolume = value;
         }
 
         public float SFXVolume
         {
-            get => sfxVolume;
-            set
-            {
-                sfxVolume = Mathf.Clamp01(value);
-                sfxChannel.Volume = sfxVolume;
-                SaveSettings();
-            }
+            get => volumeManager.SFXVolume;
+            set => volumeManager.SFXVolume = value;
         }
 
         public float VoiceVolume
         {
-            get => voiceVolume;
-            set
-            {
-                voiceVolume = Mathf.Clamp01(value);
-                voiceChannel.Volume = voiceVolume;
-                SaveSettings();
-            }
+            get => volumeManager.VoiceVolume;
+            set => volumeManager.VoiceVolume = value;
         }
-
-        // ========== 음소거 ==========
-
-        private bool isMasterMuted = false;
-        private bool isBGMMuted = false;
-        private bool isSFXMuted = false;
-        private bool isVoiceMuted = false;
 
         public bool IsMasterMuted
         {
-            get => isMasterMuted;
-            set
-            {
-                if (isMasterMuted == value)
-                    return;
-
-                isMasterMuted = value;
-
-                // 모든 채널에 볼륨 변경 알림
-                bgmChannel?.MarkVolumeDirty();
-                sfxChannel?.MarkVolumeDirty();
-                voiceChannel?.MarkVolumeDirty();
-
-                SaveSettings();
-            }
+            get => volumeManager.IsMasterMuted;
+            set => volumeManager.IsMasterMuted = value;
         }
 
         public bool IsBGMMuted
         {
-            get => isBGMMuted;
-            set
-            {
-                isBGMMuted = value;
-                bgmChannel.IsMuted = isBGMMuted;
-                SaveSettings();
-            }
+            get => volumeManager.IsBGMMuted;
+            set => volumeManager.IsBGMMuted = value;
         }
 
         public bool IsSFXMuted
         {
-            get => isSFXMuted;
-            set
-            {
-                isSFXMuted = value;
-                sfxChannel.IsMuted = isSFXMuted;
-                SaveSettings();
-            }
+            get => volumeManager.IsSFXMuted;
+            set => volumeManager.IsSFXMuted = value;
         }
 
         public bool IsVoiceMuted
         {
-            get => isVoiceMuted;
-            set
-            {
-                isVoiceMuted = value;
-                voiceChannel.IsMuted = isVoiceMuted;
-                SaveSettings();
-            }
+            get => volumeManager.IsVoiceMuted;
+            set => volumeManager.IsVoiceMuted = value;
         }
-
-        // ========== 설정 저장/로드 ==========
 
         public void SaveSettings()
         {
-            settings.Save(masterVolume, bgmVolume, sfxVolume, voiceVolume,
-                         isMasterMuted, isBGMMuted, isSFXMuted, isVoiceMuted);
+            volumeManager.SaveSettings();
         }
 
         public void LoadSettings()
         {
-            var (master, bgm, sfx, voice) = settings.LoadVolumes();
-            var (masterMute, bgmMute, sfxMute, voiceMute) = settings.LoadMutes();
-
-            masterVolume = master;
-            bgmVolume = bgm;
-            sfxVolume = sfx;
-            voiceVolume = voice;
-
-            isMasterMuted = masterMute;
-            isBGMMuted = bgmMute;
-            isSFXMuted = sfxMute;
-            isVoiceMuted = voiceMute;
-
-            // 채널에 적용
-            if (bgmChannel != null)
-            {
-                bgmChannel.Volume = bgmVolume;
-                sfxChannel.Volume = sfxVolume;
-                voiceChannel.Volume = voiceVolume;
-
-                bgmChannel.IsMuted = isBGMMuted;
-                sfxChannel.IsMuted = isSFXMuted;
-                voiceChannel.IsMuted = isVoiceMuted;
-            }
+            volumeManager.LoadSettings();
         }
 
         public void ResetSettings()
         {
-            settings.Reset();
-            LoadSettings();
+            volumeManager.ResetSettings();
         }
 
-        // ========== 플레이리스트 생성 ==========
+        #endregion
+
+        #region 플레이리스트
 
         /// <summary>
         /// 오디오 플레이리스트 생성
         /// </summary>
-        public AudioPlaylist CreatePlaylist(List<string> addresses, AudioPlaylist.PlayMode mode = AudioPlaylist.PlayMode.Random)
+        public AudioPlaylist CreatePlaylist(List<string> addresses, AudioPlaylist.PlayMode mode)
         {
             return new AudioPlaylist(addresses, mode);
         }
 
-        // ========== IUpdatable ==========
-
-        public int UpdateOrder => 10;
+        #endregion
 
         public void OnUpdate(float deltaTime)
         {
@@ -543,19 +394,6 @@ namespace Common.Audio
             bgmChannel.Update(deltaTime);
             sfxChannel.Update(deltaTime);
             voiceChannel.Update(deltaTime);
-
-            // 3D 사운드 완료 체크
-            for (int i = activeSpatialSounds.Count - 1; i >= 0; i--)
-            {
-                var sound = activeSpatialSounds[i];
-
-                if (sound.IsPlaying && !sound.AudioSource.isPlaying)
-                {
-                    sound.OnPlayComplete();
-                    activeSpatialSounds.RemoveAt(i);
-                    PoolManager.ReturnToPool(sound);  // PoolManager로 반환
-                }
-            }
         }
 
         public void Dispose()
@@ -563,8 +401,6 @@ namespace Common.Audio
             this.UnregisterFromGameFlow();  // GameFlowManager에서 등록 해제
             SaveSettings();
         }
-
-        // ========== 런타임 생성 ==========
 
         private BGMSound CreateBGMSound()
         {

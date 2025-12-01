@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Common.Audio
 {
@@ -7,7 +7,6 @@ namespace Common.Audio
     /// </summary>
     public class AudioSettings
     {
-        // ========== PlayerPrefs 키 ==========
         private const string MASTER_VOLUME_KEY = "Audio_MasterVolume";
         private const string BGM_VOLUME_KEY = "Audio_BGMVolume";
         private const string SFX_VOLUME_KEY = "Audio_SFXVolume";
@@ -18,10 +17,7 @@ namespace Common.Audio
         private const string SFX_MUTE_KEY = "Audio_SFXMute";
         private const string VOICE_MUTE_KEY = "Audio_VoiceMute";
 
-        // ========== 기본값 ==========
         public const float DEFAULT_VOLUME = 1f;
-
-        // ========== 저장 ==========
 
         /// <summary>
         /// 오디오 설정 저장
@@ -41,8 +37,6 @@ namespace Common.Audio
 
             PlayerPrefs.Save();
         }
-
-        // ========== 로드 ==========
 
         /// <summary>
         /// 볼륨 설정 로드
@@ -69,8 +63,6 @@ namespace Common.Audio
                 PlayerPrefs.GetInt(VOICE_MUTE_KEY, 0) == 1
             );
         }
-
-        // ========== 초기화 ==========
 
         /// <summary>
         /// 설정 초기화 (기본값으로 리셋)

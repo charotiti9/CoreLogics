@@ -10,38 +10,28 @@ namespace Common.Audio
     /// BGM 전용 사운드
     /// 듀얼 AudioSource로 크로스페이드를 GC 없이 구현합니다.
     /// </summary>
-    public class BGMSound : MonoBehaviour, IAudioSound
+    public class BGMSound : AudioSoundBase
     {
-        // ========== 듀얼 AudioSource (크로스페이드용) ==========
-        private AudioSource mainAudioSource;
-        private AudioSource subAudioSource;
+        private AudioSource audioSource;
+        public override AudioSource AudioSource => audioSource;
 
-        public AudioSource AudioSource => mainAudioSource;
+        private AudioSource subAudioSource;  // 크로스페이드 전용
 
-        // ========== 상태 ==========
-        public string CurrentAddress { get; private set; }
-        public bool IsPlaying { get; private set; }
         private bool isPaused;
 
-        // ========== 페이드 ==========
-        private AudioFader fader;
         private CancellationTokenSource fadeCts;
-
-        // ========== 초기화 ==========
 
         /// <summary>
         /// BGMSound 초기화
         /// </summary>
-        public void Initialize()
+        public override void Initialize()
         {
             // 듀얼 AudioSource 생성
-            mainAudioSource = gameObject.AddComponent<AudioSource>();
+            audioSource = gameObject.AddComponent<AudioSource>();
             subAudioSource = gameObject.AddComponent<AudioSource>();
 
-            ConfigureAudioSource(mainAudioSource);
+            ConfigureAudioSource(audioSource);
             ConfigureAudioSource(subAudioSource);
-
-            fader = new AudioFader();
         }
 
         private void ConfigureAudioSource(AudioSource source)
@@ -50,8 +40,6 @@ namespace Common.Audio
             source.loop = true;
             source.spatialBlend = 0f;  // 2D 사운드
         }
-
-        // ========== 재생 ==========
 
         /// <summary>
         /// BGM 재생 (페이드 인 지원)
@@ -65,9 +53,9 @@ namespace Common.Audio
             }
 
             CurrentAddress = address;
-            mainAudioSource.clip = clip;
-            mainAudioSource.volume = fadeInDuration > 0f ? 0f : volume;
-            mainAudioSource.Play();
+            AudioSource.clip = clip;
+            AudioSource.volume = fadeInDuration > 0f ? 0f : volume;
+            AudioSource.Play();
 
             IsPlaying = true;
             isPaused = false;
@@ -82,7 +70,7 @@ namespace Common.Audio
                 fadeCts = new CancellationTokenSource();
                 try
                 {
-                    await fader.FadeInAsync(mainAudioSource, volume, fadeInDuration, fadeCts.Token);
+                    await AudioFader.FadeInAsync(AudioSource, volume, fadeInDuration, fadeCts.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -109,7 +97,7 @@ namespace Common.Audio
                 fadeCts = new CancellationTokenSource();
                 try
                 {
-                    await fader.FadeOutAsync(mainAudioSource, fadeOutDuration, fadeCts.Token);
+                    await AudioFader.FadeOutAsync(AudioSource, fadeOutDuration, fadeCts.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -117,11 +105,10 @@ namespace Common.Audio
                 }
             }
 
-            mainAudioSource.Stop();
-            AddressableLoader.Instance.Release(CurrentAddress);
+            AudioSource.Stop();
+            ReleaseCurrentAddress();
 
             IsPlaying = false;
-            CurrentAddress = null;
         }
 
         /// <summary>
@@ -131,7 +118,7 @@ namespace Common.Audio
         {
             if (IsPlaying && !isPaused)
             {
-                mainAudioSource.Pause();
+                AudioSource.Pause();
                 isPaused = true;
             }
         }
@@ -143,12 +130,10 @@ namespace Common.Audio
         {
             if (IsPlaying && isPaused)
             {
-                mainAudioSource.UnPause();
+                AudioSource.UnPause();
                 isPaused = false;
             }
         }
-
-        // ========== 크로스페이드 (GC 0) ==========
 
         /// <summary>
         /// BGM 크로스페이드 전환 (듀얼 AudioSource 핑퐁)
@@ -168,7 +153,7 @@ namespace Common.Audio
             fadeCts = new CancellationTokenSource();
             try
             {
-                await fader.CrossFadeAsync(mainAudioSource, subAudioSource, volume, duration, fadeCts.Token);
+                await AudioFader.CrossFadeAsync(AudioSource, subAudioSource, volume, duration, fadeCts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -176,33 +161,14 @@ namespace Common.Audio
             }
 
             // 3. AudioSource 교체 (핑퐁)
-            mainAudioSource.Stop();
-            (mainAudioSource, subAudioSource) = (subAudioSource, mainAudioSource);
+            AudioSource.Stop();
+            (audioSource, subAudioSource) = (subAudioSource, audioSource);
 
             // 4. 이전 클립 언로드
-            AddressableLoader.Instance.Release(CurrentAddress);
+            ReleaseCurrentAddress();
 
             CurrentAddress = newAddress;
         }
-
-        // ========== IAudioSound ==========
-
-        public void Play(AudioClip clip, float volume, bool loop)
-        {
-            mainAudioSource.clip = clip;
-            mainAudioSource.volume = volume;
-            mainAudioSource.loop = loop;
-            mainAudioSource.Play();
-            IsPlaying = true;
-        }
-
-        public void Stop()
-        {
-            mainAudioSource.Stop();
-            IsPlaying = false;
-        }
-
-        // ========== 정리 ==========
 
         /// <summary>
         /// 오브젝트 파괴 시 CancellationTokenSource 정리

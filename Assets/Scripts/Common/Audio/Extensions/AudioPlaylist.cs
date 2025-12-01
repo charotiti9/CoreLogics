@@ -24,8 +24,6 @@ namespace Common.Audio
             Shuffle      // 셔플 (전체 재생 후 다시 셔플)
         }
 
-        // ========== 초기화 ==========
-
         public AudioPlaylist(List<string> addresses, PlayMode mode = PlayMode.Random)
         {
             if (addresses == null || addresses.Count == 0)
@@ -45,147 +43,7 @@ namespace Common.Audio
             }
         }
 
-        // ========== BGM 재생 ==========
-
-        /// <summary>
-        /// 다음 BGM 재생 (크로스페이드)
-        /// </summary>
-        public async UniTask PlayNextBGMAsync(float crossFadeDuration = 2f, CancellationToken ct = default)
-        {
-            string address = GetNext();
-            if (address == null)
-                return;
-
-            await AudioManager.Instance.CrossFadeBGMAsync(address, crossFadeDuration, ct);
-        }
-
-        /// <summary>
-        /// 이전 BGM 재생 (크로스페이드)
-        /// </summary>
-        public async UniTask PlayPreviousBGMAsync(float crossFadeDuration = 2f, CancellationToken ct = default)
-        {
-            string address = GetPrevious();
-            if (address == null)
-                return;
-
-            await AudioManager.Instance.CrossFadeBGMAsync(address, crossFadeDuration, ct);
-        }
-
-        /// <summary>
-        /// 특정 인덱스의 BGM 재생
-        /// </summary>
-        public async UniTask PlayBGMAtIndexAsync(int index, float crossFadeDuration = 2f, CancellationToken ct = default)
-        {
-            if (index < 0 || index >= addresses.Count)
-            {
-                GameLogger.LogError($"Invalid index: {index}");
-                return;
-            }
-
-            currentIndex = index;
-            await AudioManager.Instance.CrossFadeBGMAsync(addresses[index], crossFadeDuration, ct);
-        }
-
-        // ========== SFX 재생 ==========
-
-        /// <summary>
-        /// 플레이리스트에서 SFX 재생 (2D)
-        /// </summary>
-        public async UniTask<SFXSound> PlaySFXAsync(float volume = 1f, int priority = 128, CancellationToken ct = default)
-        {
-            string address = GetNext();
-            if (address == null)
-                return null;
-
-            return await AudioManager.Instance.PlaySFXAsync(address, volume, priority, ct);
-        }
-
-        /// <summary>
-        /// 플레이리스트에서 SFX 재생 (3D)
-        /// </summary>
-        public async UniTask PlaySFXAtPositionAsync(Vector3 position, float volume = 1f, CancellationToken ct = default)
-        {
-            string address = GetNext();
-            if (address == null)
-                return;
-
-            await AudioManager.Instance.PlaySFXAtPositionAsync(address, position, volume, ct);
-        }
-
-        // ========== 내부 로직 ==========
-
-        private string GetNext()
-        {
-            if (addresses.Count == 0)
-            {
-                GameLogger.LogWarning("AudioPlaylist is empty");
-                return null;
-            }
-
-            switch (playMode)
-            {
-                case PlayMode.Sequential:
-                    string seqAddress = addresses[currentIndex];
-                    currentIndex = (currentIndex + 1) % addresses.Count;
-                    return seqAddress;
-
-                case PlayMode.Random:
-                    return addresses[Random.Range(0, addresses.Count)];
-
-                case PlayMode.Shuffle:
-                    if (currentIndex >= shuffleIndices.Count)
-                    {
-                        ShufflePlaylist();
-                        currentIndex = 0;
-                    }
-                    string shuffleAddress = addresses[shuffleIndices[currentIndex]];
-                    currentIndex++;
-                    return shuffleAddress;
-
-                default:
-                    return addresses[0];
-            }
-        }
-
-        private string GetPrevious()
-        {
-            if (addresses.Count == 0)
-            {
-                GameLogger.LogWarning("AudioPlaylist is empty");
-                return null;
-            }
-
-            currentIndex = (currentIndex - 1 + addresses.Count) % addresses.Count;
-            return addresses[currentIndex];
-        }
-
-        private void ShufflePlaylist()
-        {
-            // 기존 리스트 재사용
-            if (shuffleIndices == null)
-            {
-                shuffleIndices = new List<int>(addresses.Count);
-            }
-            else
-            {
-                shuffleIndices.Clear();
-            }
-
-            for (int i = 0; i < addresses.Count; i++)
-            {
-                shuffleIndices.Add(i);
-            }
-
-            // Fisher-Yates 셔플
-            for (int i = shuffleIndices.Count - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                (shuffleIndices[i], shuffleIndices[j]) = (shuffleIndices[j], shuffleIndices[i]);
-            }
-        }
-
-        // ========== 유틸리티 ==========
-
+        #region 유틸리티
         /// <summary>
         /// 플레이 모드 변경
         /// </summary>
@@ -240,5 +98,165 @@ namespace Common.Audio
         /// 플레이리스트 크기
         /// </summary>
         public int Count => addresses.Count;
+
+        #endregion
+
+        #region BGM 재생
+
+        /// <summary>
+        /// 다음 BGM 재생 (크로스페이드)
+        /// </summary>
+        public async UniTask PlayNextBGMAsync(float crossFadeDuration = 2f, CancellationToken ct = default)
+        {
+            string address = GetNext();
+            if (address == null)
+                return;
+
+            await AudioManager.Instance.CrossFadeBGMAsync(address, crossFadeDuration, ct);
+        }
+
+        /// <summary>
+        /// 이전 BGM 재생 (크로스페이드)
+        /// </summary>
+        public async UniTask PlayPreviousBGMAsync(float crossFadeDuration = 2f, CancellationToken ct = default)
+        {
+            string address = GetPrevious();
+            if (address == null)
+                return;
+
+            await AudioManager.Instance.CrossFadeBGMAsync(address, crossFadeDuration, ct);
+        }
+
+        /// <summary>
+        /// 특정 인덱스의 BGM 재생
+        /// </summary>
+        public async UniTask PlayBGMAtIndexAsync(int index, float crossFadeDuration = 2f, CancellationToken ct = default)
+        {
+            if (index < 0 || index >= addresses.Count)
+            {
+                GameLogger.LogError($"Invalid index: {index}");
+                return;
+            }
+
+            currentIndex = index;
+            await AudioManager.Instance.CrossFadeBGMAsync(addresses[index], crossFadeDuration, ct);
+        }
+
+        #endregion
+
+        #region SFX 재생
+
+        /// <summary>
+        /// 플레이리스트에서 SFX 재생 (2D)
+        /// </summary>
+        public async UniTask<SFXSound> PlaySFXAsync(float volume = 1f, int priority = 128, CancellationToken ct = default)
+        {
+            string address = GetNext();
+            if (address == null)
+                return null;
+
+            return await AudioManager.Instance.PlaySFXAsync(address, volume, priority, ct);
+        }
+
+        /// <summary>
+        /// 플레이리스트에서 SFX 재생 (3D)
+        /// </summary>
+        public async UniTask PlaySFXAtPositionAsync(Vector3 position, float volume = 1f, CancellationToken ct = default)
+        {
+            string address = GetNext();
+            if (address == null)
+                return;
+
+            await AudioManager.Instance.PlaySFXAtPositionAsync(address, position, volume, ct);
+        }
+
+        #endregion
+
+        private string GetNext()
+        {
+            if (addresses.Count == 0)
+            {
+                GameLogger.LogWarning("AudioPlaylist is empty");
+                return null;
+            }
+
+            switch (playMode)
+            {
+                case PlayMode.Sequential:
+                    string seqAddress = addresses[currentIndex];
+                    currentIndex = (currentIndex + 1) % addresses.Count;
+                    return seqAddress;
+
+                case PlayMode.Random:
+                    return addresses[Random.Range(0, addresses.Count)];
+
+                case PlayMode.Shuffle:
+                    if (currentIndex >= shuffleIndices.Count)
+                    {
+                        ShufflePlaylist();
+                        currentIndex = 0;
+                    }
+                    string shuffleAddress = addresses[shuffleIndices[currentIndex]];
+                    currentIndex++;
+                    return shuffleAddress;
+
+                default:
+                    return addresses[0];
+            }
+        }
+
+        private string GetPrevious()
+        {
+            if (addresses.Count == 0)
+            {
+                GameLogger.LogWarning("AudioPlaylist is empty");
+                return null;
+            }
+
+            switch (playMode)
+            {
+                case PlayMode.Sequential:
+                    currentIndex = (currentIndex - 1 + addresses.Count) % addresses.Count;
+                    return addresses[currentIndex];
+
+                case PlayMode.Random:
+                    // Random 모드는 이전 개념이 없으므로 랜덤 재생
+                    return addresses[Random.Range(0, addresses.Count)];
+
+                case PlayMode.Shuffle:
+                    // Shuffle 모드는 셔플 인덱스를 역순으로 이동
+                    currentIndex = (currentIndex - 1 + shuffleIndices.Count) % shuffleIndices.Count;
+                    return addresses[shuffleIndices[currentIndex]];
+
+                default:
+                    return addresses[0];
+            }
+        }
+
+        private void ShufflePlaylist()
+        {
+            // 기존 리스트 재사용
+            if (shuffleIndices == null)
+            {
+                shuffleIndices = new List<int>(addresses.Count);
+            }
+            else
+            {
+                shuffleIndices.Clear();
+            }
+
+            for (int i = 0; i < addresses.Count; i++)
+            {
+                shuffleIndices.Add(i);
+            }
+
+            // Fisher-Yates 셔플
+            for (int i = shuffleIndices.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (shuffleIndices[i], shuffleIndices[j]) = (shuffleIndices[j], shuffleIndices[i]);
+            }
+        }
+
     }
 }

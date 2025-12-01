@@ -375,6 +375,148 @@ Addressables.Release(handle);
 - 느슨한 결합을 위해 인터페이스를 활용합니다.
 - View와 Logic을 분리하여 테스트와 유지보수를 용이하게 합니다.
 
+### 프로젝트 시스템 활용
+프로젝트에는 이미 구축된 강력한 시스템들이 `Assets/Scripts/Common`과 `Assets/Scripts/Core` 폴더에 준비되어 있습니다. **새로운 기능을 개발할 때는 반드시 이러한 기존 시스템들을 최대한 활용**해야 합니다.
+
+#### Scripts/Core/ - 핵심 시스템
+핵심 게임 인프라를 제공하는 시스템들입니다. 새로운 기능 개발 시 우선적으로 활용해야 합니다.
+
+**1. Addressable System** (`Core/Addressable/`)
+- **AddressableLoader**: 모든 리소스 로딩의 중앙 관리자
+  - 참조 카운팅으로 자동 메모리 관리
+  - 중복 로딩 방지
+  - 비동기 로딩 지원 (UniTask 통합)
+- **사용 예시**:
+```csharp
+// Addressable을 통한 리소스 로딩
+var loader = AddressableLoader.Instance;
+var handle = await loader.LoadAssetAsync<GameObject>("Prefabs/Player", cancellationToken);
+
+// 사용 완료 후 자동 Release (참조 카운팅)
+loader.ReleaseAsset(handle);
+```
+
+**2. CSV System** (`Core/CSV/`)
+- **CSVManager**: 게임 데이터 테이블 관리
+  - CSV 파일 자동 파싱 및 C# 클래스 생성
+  - 데이터 간 참조 자동 해결
+  - 순환 참조 검증
+- **사용 시점**: 게임 데이터 (아이템, 스킬, 스테이지 등)를 관리할 때
+- **사용 예시**:
+```csharp
+// CSV 데이터 로드
+await CSVManager.Instance.LoadAllTablesAsync(cancellationToken);
+
+// 데이터 조회
+var itemData = CSVManager.Instance.GetTable<ItemData>();
+var item = itemData.GetById(itemId);
+```
+
+**3. Game System** (`Core/Game/`)
+- **GameBootstrap**: 게임 초기화 진입점
+  - 모든 시스템의 초기화 순서 관리
+  - 게임 상태 전환 제어
+- **GameContext**: 게임 전역 데이터 컨테이너
+  - 게임 세션 데이터 보관
+- **사용 시점**: 새로운 게임 상태나 초기화 로직 추가 시
+
+**4. GameFlow System** (`Core/GameFlow/`)
+- **GameFlowManager**: 중앙집중식 Update 관리
+  - IUpdatable, IFixedUpdatable 인터페이스 제공
+  - 실행 순서를 명확하게 제어
+- **필수 사용**: MonoBehaviour의 Update() 대신 이 시스템 사용
+- **사용 예시**:
+```csharp
+public class Enemy : IUpdatable
+{
+    public void Initialize()
+    {
+        GameFlowManager.Instance.RegisterUpdatable(this);
+    }
+
+    public void OnUpdate(float deltaTime)
+    {
+        // 적 업데이트 로직
+    }
+
+    public void Dispose()
+    {
+        GameFlowManager.Instance.UnregisterUpdatable(this);
+    }
+}
+```
+
+**5. Pool System** (`Core/Pool/`)
+- 오브젝트 풀링 시스템 (Addressable 통합)
+- 빈번한 생성/파괴가 필요한 오브젝트에 사용
+- **사용 시점**: 총알, 이펙트, 적 등 반복 생성되는 오브젝트
+
+**6. StateMachine System** (`Core/StateMachine/`)
+- 범용 상태 머신 구현
+- **사용 시점**: 캐릭터 AI, 게임 상태 전환 등
+
+**7. Singleton System** (`Core/Singleton/`)
+- 싱글톤 패턴 구현 (MonoBehaviour/일반 클래스)
+- **주의**: 남용 금지, 진짜 전역 관리자에만 사용
+
+#### Scripts/Common/ - 공통 기능
+게임 전반에서 사용되는 공통 기능들입니다.
+
+**1. UI System** (`Common/UI/`)
+- **UIManager**: UI 생명주기 및 레이어 관리
+  - UI 열기/닫기 자동 관리
+  - UI 레이어 시스템 (Popup, HUD 등)
+  - UI 스택 관리
+  - Dim(배경 어둡게) 자동 처리
+- **UIBase**: 모든 UI의 기반 클래스
+  - 생명주기 메서드 제공 (OnShow, OnHide 등)
+- **사용 예시**:
+```csharp
+// UI 열기
+await UIManager.Instance.ShowAsync<MainMenuUI>(UILayer.Popup, cancellationToken);
+
+// UI 닫기
+UIManager.Instance.Hide<MainMenuUI>();
+
+// 모든 UI 닫기
+UIManager.Instance.HideAll();
+```
+
+**2. Audio System** (`Common/Audio/`)
+- **AudioManager**: 오디오 재생 및 관리
+  - BGM, SFX, Voice 채널 분리
+  - 페이드 인/아웃 지원
+  - 우선순위 큐 관리
+  - Addressable 통합
+- **사용 예시**:
+```csharp
+// BGM 재생
+await AudioManager.Instance.PlayBGMAsync("BGM_Title", cancellationToken);
+
+// SFX 재생
+AudioManager.Instance.PlaySFX("SFX_Click");
+
+// 볼륨 조절
+AudioManager.Instance.SetVolume(AudioChannelType.BGM, 0.5f);
+```
+
+#### 시스템 활용 체크리스트
+새로운 기능을 개발하기 전에 다음을 확인하세요:
+- [ ] 리소스를 로딩해야 하는가? → **AddressableLoader 사용**
+- [ ] 게임 데이터를 관리해야 하는가? → **CSVManager 사용**
+- [ ] Update가 필요한가? → **GameFlowManager + IUpdatable 사용**
+- [ ] 오브젝트를 반복 생성/파괴하는가? → **Pool System 사용**
+- [ ] 상태 전환 로직이 있는가? → **StateMachine 사용**
+- [ ] 전역 관리자가 필요한가? → **Singleton 사용 (남용 주의)**
+- [ ] UI를 표시해야 하는가? → **UIManager + UIBase 사용**
+- [ ] 사운드를 재생해야 하는가? → **AudioManager 사용**
+
+#### 중요 원칙
+1. **기존 시스템 우선 활용**: 바퀴를 재발명하지 마세요. 대부분의 기능은 이미 구현되어 있습니다.
+2. **시스템 확장**: 기존 시스템으로 부족하다면, 새로운 시스템을 만들기 전에 기존 시스템을 확장할 수 있는지 검토하세요.
+3. **일관성 유지**: 프로젝트 전체가 동일한 패턴과 시스템을 사용하도록 합니다.
+4. **README 참조**: 각 시스템의 자세한 사용법은 `Assets/Scripts/README.md`를 참조하세요.
+
 ---
 
 ## 체크리스트

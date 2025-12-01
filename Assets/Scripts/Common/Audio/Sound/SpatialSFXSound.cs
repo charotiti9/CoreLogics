@@ -10,45 +10,40 @@ namespace Common.Audio
     /// 3D 공간 오디오 (Spatial SFX)
     /// </summary>
     [PoolAddress("Audio/SpatialSFXSound", "AudioSounds")]
-    public class SpatialSFXSound : MonoBehaviour, IPoolable, IAudioSound
+    public class SpatialSFXSound : AudioSoundBase, IPoolable
     {
-        public AudioSource AudioSource { get; private set; }
+        private AudioSource audioSource;
+        public override AudioSource AudioSource => audioSource;
 
-        private string currentAddress;
-        public bool IsPlaying { get; private set; }
         public float LocalVolume { get; private set; }
 
         private UniTaskCompletionSource completionSource;
 
-        // ========== 초기화 ==========
-
         /// <summary>
         /// SpatialSFXSound 초기화 (Prefab의 AudioSource 컴포넌트 참조)
         /// </summary>
-        public void Initialize()
+        public override void Initialize()
         {
             // AudioSource는 Prefab에 미리 포함되어 있음
-            AudioSource = GetComponent<AudioSource>();
+            audioSource = GetComponent<AudioSource>();
 
-            if (AudioSource == null)
+            if (audioSource == null)
             {
                 Debug.LogError("[SpatialSFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
                 return;
             }
 
             // 3D 사운드 설정 (Prefab 설정과 무관하게 보장)
-            AudioSource.playOnAwake = false;
-            AudioSource.loop = false;
-            AudioSource.spatialBlend = 1f;  // 완전한 3D 사운드
+            audioSource.playOnAwake = false;
+            audioSource.loop = false;
+            audioSource.spatialBlend = 1f;  // 완전한 3D 사운드
 
             // 거리 감쇠 설정 (AudioConfig에서 가져옴)
-            AudioSource.rolloffMode = AudioRolloffMode.Linear;
+            audioSource.rolloffMode = AudioRolloffMode.Linear;
             var config = AudioManager.Instance.Config;
-            AudioSource.minDistance = config.spatialMinDistance;
-            AudioSource.maxDistance = config.spatialMaxDistance;
+            audioSource.minDistance = config.spatialMinDistance;
+            audioSource.maxDistance = config.spatialMaxDistance;
         }
-
-        // ========== 재생 ==========
 
         /// <summary>
         /// 3D 위치에서 재생
@@ -61,7 +56,7 @@ namespace Common.Audio
             AudioSource.volume = volume;
             AudioSource.Play();
 
-            currentAddress = address;
+            CurrentAddress = address;
             LocalVolume = volume;
             IsPlaying = true;
 
@@ -80,8 +75,6 @@ namespace Common.Audio
             OnPlayComplete();
         }
 
-        // ========== 완료 대기 ==========
-
         /// <summary>
         /// 재생 완료까지 대기
         /// </summary>
@@ -93,7 +86,14 @@ namespace Common.Audio
             await completionSource.Task.AttachExternalCancellation(ct);
         }
 
-        // ========== 완료 처리 ==========
+        /// <summary>
+        /// 재생 완료 여부를 체크
+        /// AudioManager가 Update에서 호출하여 중앙집중식으로 관리
+        /// </summary>
+        public bool CheckHandleCompletion()
+        {
+            return IsPlaying && !AudioSource.isPlaying;
+        }
 
         /// <summary>
         /// 재생 완료 처리
@@ -105,8 +105,6 @@ namespace Common.Audio
 
             // 주의: Addressable 리소스 해제는 OnReturnToPool에서 처리
         }
-
-        // ========== IPoolable ==========
 
         public void OnGetFromPool()
         {
@@ -129,22 +127,7 @@ namespace Common.Audio
             completionSource = null;
 
             // Addressable 리소스 해제
-            if (!string.IsNullOrEmpty(currentAddress))
-            {
-                AddressableLoader.Instance.Release(currentAddress);
-                currentAddress = null;
-            }
-        }
-
-        // ========== IAudioSound ==========
-
-        void IAudioSound.Play(AudioClip clip, float volume, bool loop)
-        {
-            AudioSource.clip = clip;
-            AudioSource.volume = volume;
-            AudioSource.loop = loop;
-            AudioSource.Play();
-            IsPlaying = true;
+            ReleaseCurrentAddress();
         }
     }
 }

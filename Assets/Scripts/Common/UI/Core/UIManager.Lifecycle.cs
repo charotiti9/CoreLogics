@@ -15,9 +15,9 @@ namespace Common.UI
     {
         /// <summary>
         /// UIManager를 비동기로 초기화합니다.
-        /// CreateAsync()에서 자동으로 호출되므로 직접 호출하지 마세요.
+        /// Initialize()에서 자동으로 호출되므로 직접 호출하지 마세요.
         /// </summary>
-        internal async UniTask InitializeAsync(CancellationToken ct = default)
+        private async UniTask InitializeAsync(CancellationToken ct = default)
         {
             if (isInitialized)
             {
@@ -114,8 +114,10 @@ namespace Common.UI
             Debug.Log($"Resolution changed: {newResolution}, notified {activeUIs.Count} UIs");
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
+
             // 명시적 이벤트 구독 해제
             SceneManager.sceneLoaded -= OnSceneLoaded;
 
@@ -141,12 +143,6 @@ namespace Common.UI
             if (mainCanvasHandle.IsValid())
             {
                 Addressables.ReleaseInstance(mainCanvasHandle);
-            }
-
-            // 싱글톤 정리
-            if (_instance == this)
-            {
-                _instance = null;
             }
         }
     }

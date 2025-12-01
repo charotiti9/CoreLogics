@@ -9,7 +9,7 @@ namespace Common.Audio
     /// 오디오 페이드 효과 처리
     /// 페이드 인, 페이드 아웃, 크로스페이드를 구현합니다.
     /// </summary>
-    public class AudioFader
+    public static class AudioFader
     {
         /// <summary>
         /// 페이드 인
@@ -18,7 +18,7 @@ namespace Common.Audio
         /// <param name="targetVolume">목표 볼륨</param>
         /// <param name="duration">페이드 지속 시간</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask FadeInAsync(AudioSource source, float targetVolume, float duration, CancellationToken ct)
+        public static async UniTask FadeInAsync(AudioSource source, float targetVolume, float duration, CancellationToken ct)
         {
             await FadeVolumeAsync(source, 0f, targetVolume, duration, ct);
         }
@@ -29,7 +29,7 @@ namespace Common.Audio
         /// <param name="source">AudioSource</param>
         /// <param name="duration">페이드 지속 시간</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask FadeOutAsync(AudioSource source, float duration, CancellationToken ct)
+        public static async UniTask FadeOutAsync(AudioSource source, float duration, CancellationToken ct)
         {
             float currentVolume = source.volume;
             await FadeVolumeAsync(source, currentVolume, 0f, duration, ct);
@@ -43,7 +43,7 @@ namespace Common.Audio
         /// <param name="toTargetVolume">페이드 인의 목표 볼륨</param>
         /// <param name="duration">크로스페이드 지속 시간</param>
         /// <param name="ct">CancellationToken</param>
-        public async UniTask CrossFadeAsync(AudioSource from, AudioSource to, float toTargetVolume, float duration, CancellationToken ct)
+        public static async UniTask CrossFadeAsync(AudioSource from, AudioSource to, float toTargetVolume, float duration, CancellationToken ct)
         {
             float fromVolume = from.volume;
 
@@ -57,7 +57,7 @@ namespace Common.Audio
         /// <summary>
         /// 볼륨 페이드 (내부 구현)
         /// </summary>
-        private async UniTask FadeVolumeAsync(AudioSource source, float from, float to, float duration, CancellationToken ct)
+        private static async UniTask FadeVolumeAsync(AudioSource source, float from, float to, float duration, CancellationToken ct)
         {
             if (duration <= 0f)
             {

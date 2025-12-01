@@ -18,75 +18,34 @@ namespace Common.UI
     /// 모든 UI의 생성, 표시, 숨김, 제거를 중앙에서 관리합니다.
     ///
     /// 사용법:
-    /// 1. 게임 시작 시 명시적 초기화:
-    ///    await UIManager.CreateAsync(cancellationToken);
-    ///
+    /// 1. 씬에 UIManager GameObject 배치 (Awake에서 자동 초기화)
     /// 2. UI 사용:
     ///    await UIManager.Instance.ShowAsync<MyUI>(...);
     /// </summary>
-    public partial class UIManager : MonoBehaviour
+    public partial class UIManager : EagerMonoSingleton<UIManager>
     {
-        // 싱글톤 인스턴스
-        private static UIManager _instance;
+        // 초기화 상태
+        private UniTask initializeTask;
 
         /// <summary>
-        /// UIManager 싱글톤 인스턴스
-        /// CreateAsync()로 초기화한 후 사용하세요.
+        /// 초기화
         /// </summary>
-        public static UIManager Instance
+        protected override void Initialize()
         {
-            get
-            {
-                if (_instance == null)
-                {
-                    throw new InvalidOperationException(
-                        "[UIManager] UIManager가 초기화되지 않았습니다.\n\n" +
-                        "게임 시작 시 다음과 같이 초기화하세요:\n" +
-                        "await UIManager.CreateAsync(cancellationToken);\n\n" +
-                        "예시:\n" +
-                        "public class GameBootstrap : MonoBehaviour\n" +
-                        "{\n" +
-                        "    async void Start()\n" +
-                        "    {\n" +
-                        "        var cts = new CancellationTokenSource();\n" +
-                        "        await UIManager.CreateAsync(cts.Token);\n" +
-                        "    }\n" +
-                        "}");
-                }
-                return _instance;
-            }
+            base.Initialize();
+            initializeTask = InitializeAsync(destroyCancellationToken);
+            initializeTask.Forget();
         }
 
         /// <summary>
-        /// UIManager를 생성하고 초기화합니다.
-        /// 게임 시작 시 한 번만 호출하세요.
+        /// 초기화 완료 대기
         /// </summary>
-        /// <param name="ct">CancellationToken</param>
-        /// <returns>초기화된 UIManager 인스턴스</returns>
-        public static async UniTask<UIManager> CreateAsync(CancellationToken ct = default)
+        private async UniTask WaitForInitializeAsync(CancellationToken ct)
         {
-            if (_instance != null)
+            if (!isInitialized)
             {
-                Debug.LogWarning("[UIManager] 이미 초기화되어 있습니다.");
-                return _instance;
+                await initializeTask.AttachExternalCancellation(ct);
             }
-
-            // GameObject 생성
-            GameObject go = new GameObject("[UIManager]");
-            UIManager manager = go.AddComponent<UIManager>();
-
-            // 비동기 초기화
-            await manager.InitializeAsync(ct);
-
-            // 싱글톤 등록
-            _instance = manager;
-
-            // DontDestroyOnLoad 설정
-            DontDestroyOnLoad(go);
-
-            Debug.Log("[UIManager] 초기화 완료");
-
-            return manager;
         }
 
         // MainCanvas Addressable Address
@@ -119,6 +78,8 @@ namespace Common.UI
         /// <returns>생성된 UI 인스턴스</returns>
         public async UniTask<T> ShowAsync<T>(UILayer layer, object data = null, bool useDim = false, CancellationToken ct = default) where T : UIBase
         {
+            await WaitForInitializeAsync(ct);
+
             Type type = typeof(T);
 
             // 이미 표시 중인 UI가 있으면 반환

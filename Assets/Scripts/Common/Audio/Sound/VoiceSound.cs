@@ -11,28 +11,23 @@ namespace Common.Audio
     /// Voice 사운드
     /// 음성/대사 재생 및 스킵 기능을 제공합니다.
     /// </summary>
-    public class VoiceSound : MonoBehaviour, IAudioSound
+    public class VoiceSound : AudioSoundBase
     {
-        public AudioSource AudioSource { get; private set; }
+        private AudioSource audioSource;
+        public override AudioSource AudioSource => audioSource;
 
-        private string currentAddress;
-        private bool isPlaying;
         private UniTaskCompletionSource<VoiceCompleteReason> completionSource;
-
-        // ========== 초기화 ==========
 
         /// <summary>
         /// VoiceSound 초기화
         /// </summary>
-        public void Initialize()
+        public override void Initialize()
         {
-            AudioSource = gameObject.AddComponent<AudioSource>();
-            AudioSource.playOnAwake = false;
-            AudioSource.loop = false;
-            AudioSource.spatialBlend = 0f;
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.loop = false;
+            audioSource.spatialBlend = 0f;
         }
-
-        // ========== 재생 ==========
 
         /// <summary>
         /// Voice 재생
@@ -40,17 +35,17 @@ namespace Common.Audio
         public UniTask PlayAsync(string address, AudioClip clip, float volume, CancellationToken ct)
         {
             // 이전 Voice 정지
-            if (isPlaying)
+            if (IsPlaying)
             {
                 Stop();
             }
 
-            currentAddress = address;
+            CurrentAddress = address;
             AudioSource.clip = clip;
             AudioSource.volume = volume;
             AudioSource.Play();
 
-            isPlaying = true;
+            IsPlaying = true;
             completionSource = new UniTaskCompletionSource<VoiceCompleteReason>();
 
             // 완료 체크 (별도 Task로)
@@ -67,13 +62,13 @@ namespace Common.Audio
             try
             {
                 // 재생 완료까지 대기
-                while (AudioSource.isPlaying && isPlaying)
+                while (AudioSource.isPlaying && IsPlaying)
                 {
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 }
 
                 // 정상 완료
-                if (isPlaying)
+                if (IsPlaying)
                 {
                     OnPlayComplete(VoiceCompleteReason.Completed);
                 }
@@ -94,28 +89,24 @@ namespace Common.Audio
         /// </summary>
         public void Stop()
         {
-            if (!isPlaying)
+            if (!IsPlaying)
                 return;
 
             AudioSource.Stop();
             OnPlayComplete(VoiceCompleteReason.Completed);
         }
 
-        // ========== 스킵 ==========
-
         /// <summary>
         /// Voice 스킵 (플레이어 입력)
         /// </summary>
         public void Skip()
         {
-            if (!isPlaying)
+            if (!IsPlaying)
                 return;
 
             AudioSource.Stop();
             OnPlayComplete(VoiceCompleteReason.Skipped);
         }
-
-        // ========== 완료 대기 ==========
 
         /// <summary>
         /// Voice 완료까지 대기 (스킵 여부 반환)
@@ -130,23 +121,11 @@ namespace Common.Audio
 
         private void OnPlayComplete(VoiceCompleteReason reason)
         {
-            isPlaying = false;
+            IsPlaying = false;
 
             completionSource?.TrySetResult(reason);
 
-            AddressableLoader.Instance.Release(currentAddress);
-            currentAddress = null;
-        }
-
-        // ========== IAudioSound ==========
-
-        void IAudioSound.Play(AudioClip clip, float volume, bool loop)
-        {
-            AudioSource.clip = clip;
-            AudioSource.volume = volume;
-            AudioSource.loop = loop;
-            AudioSource.Play();
-            isPlaying = true;
+            ReleaseCurrentAddress();
         }
     }
 }

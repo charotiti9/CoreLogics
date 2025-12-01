@@ -21,21 +21,18 @@ namespace Core.Game.States
 
         /// <summary>
         /// 비동기 초기화 로직
-        /// UIManager 및 기타 매니저들을 초기화합니다.
+        /// 매니저 초기화 대기 및 기타 초기화를 수행합니다.
+        /// 참고: UIManager, AudioManager 등은 EagerMonoSingleton을 사용하므로 씬에 미리 배치되어야 합니다.
         /// </summary>
         private async UniTaskVoid InitializeAsync(GameContext context)
         {
             try
             {
-                // 1. UIManager 초기화 (싱글톤이므로 UIManager.Instance로 접근)
-                Debug.Log("[InitializeState] UIManager 초기화 중...");
-                await UIManager.CreateAsync(context.CancellationToken);
-                Debug.Log("[InitializeState] UIManager 초기화 완료");
+                // 1. UIManager는 EagerMonoSingleton으로 씬에 배치되어 Awake에서 자동 초기화됨
+                Debug.Log("[InitializeState] UIManager가 씬에 배치되어 있어야 합니다.");
 
-                // 2. 다른 싱글톤 매니저 초기화 (예시)
-                // Debug.Log("[InitializeState] AudioManager 초기화 중...");
-                // await AudioManager.CreateAsync(context.CancellationToken);
-                // Debug.Log("[InitializeState] AudioManager 초기화 완료");
+                // 2. 다른 싱글톤 매니저들도 EagerMonoSingleton을 사용하므로 씬에 배치되어야 함
+                // AudioManager, PoolManager 등은 Awake에서 자동 초기화됨
 
                 // 3. 데이터 로딩 (예시)
                 // Debug.Log("[InitializeState] 게임 데이터 로딩 중...");
