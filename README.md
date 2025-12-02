@@ -13,3 +13,8 @@
 - https://charotiti9.github.io/devlog/Core-Script-06.html
 - https://charotiti9.github.io/devlog/Core-Script-07.html
 - https://charotiti9.github.io/devlog/Core-Script-08.html
+
+# 기여하기
+틀린 점이나 개선할 점을 발견하셨다면 언제든지 알려주세요!
+- [Issue 생성](https://github.com/charotiti9/CoreLogics/issues)
+- [Pull Request 제출](https://github.com/charotiti9/CoreLogics/pulls)
