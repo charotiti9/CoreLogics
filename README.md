@@ -13,6 +13,7 @@
 - https://charotiti9.github.io/devlog/Core-Script-06.html
 - https://charotiti9.github.io/devlog/Core-Script-07.html
 - https://charotiti9.github.io/devlog/Core-Script-08.html
+- https://charotiti9.github.io/devlog/Core-Script-09.html
 
 ---
 
@@ -21,6 +22,7 @@
   - CSV Data System - Automatic CSV parsing, C# class generation, and circular reference validation
   - Game Bootstrap - Structured game initialization and state management
   - GameFlow Manager - Centralized Update/FixedUpdate/LateUpdate management for predictable execution order
+  - Input Manager - Event-based and polling input system with automatic code generation from Input Actions
   - Object Pool - High-performance object pooling with Addressable integration
   - State Machine - Generic state machine implementation for AI and game states
   - Singleton Pattern - Thread-safe singleton implementations (MonoBehaviour and POCO)
@@ -55,6 +57,7 @@
   - CSV 데이터 시스템 - CSV 자동 파싱, C# 클래스 생성, 순환 참조 검증
   - Game Bootstrap - 체계적인 게임 초기화 및 상태 관리
   - GameFlow Manager - 예측 가능한 실행 순서를 위한 중앙집중식 Update/FixedUpdate/LateUpdate 관리
+  - Input Manager - Input Actions로부터 자동 코드 생성을 지원하는 이벤트 기반 및 폴링 입력 시스템
   - Object Pool - Addressable과 통합된 고성능 오브젝트 풀링
   - State Machine - AI 및 게임 상태를 위한 범용 상태 머신 구현
   - Singleton Pattern - 스레드 안전 싱글톤 구현 (MonoBehaviour 및 일반 클래스)
