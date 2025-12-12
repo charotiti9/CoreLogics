@@ -66,6 +66,7 @@
   - Addressable Asset System: 필수
   - UniTask: 필수 (https://github.com/Cysharp/UniTask)
   - DOTween: 필수 (에셋 스토어)
+    - Scripting Define Symbol을 수동으로 추가 필요. Edit > Project Settings > Player > Other Player > Scripting Define Symbols 항목에서 UNITASK_DOTWEEN_SUPPORT 를 추가 > Apply
 
  ## 🚀 빠른 시작
   1. UnityPackage 임포트
