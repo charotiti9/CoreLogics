@@ -40,12 +40,13 @@
     - Addressable Asset System (Package Manager)  
     - UniTask ([git URL](https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask))  
     - DOTween (Asset Store)  
-  3. Add to your bootstrap scene:  
+       - Add 'Scripting Define Symbol' Manually. Edit > Project Settings > Player > Other Player > Scripting Define Symbols > Add `UNITASK_DOTWEEN_SUPPORT` > Apply
+  4. Add to your bootstrap scene:  
     - GameBootstrap component  
     - GameFlowManager component  
     - UIManager component  
     - AudioManager component  
-  4. See Assets/Scripts/README.md for detailed documentation
+  5. See Assets/Scripts/README.md for detailed documentation
   
 ---
 
@@ -65,7 +66,7 @@
 ## ⛓️필요한 에셋
   - Addressable Asset System: 필수
   - UniTask: 필수 (https://github.com/Cysharp/UniTask)
-  - DOTween: 필수 (에셋 스토어)
+  - DOTween: 필수 (에셋 스토어)  
     - Scripting Define Symbol을 수동으로 추가 필요. Edit > Project Settings > Player > Other Player > Scripting Define Symbols 항목에서 UNITASK_DOTWEEN_SUPPORT 를 추가 > Apply
 
  ## 🚀 빠른 시작
