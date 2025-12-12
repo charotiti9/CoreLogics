@@ -63,8 +63,6 @@ public static class CSVParser
             }
 
             List<T> result = ParseCSVText<T>(csvFile.text, fullPath, mode);
-
-            Debug.Log($"[CSVParser] {fullPath} 파싱 완료: {result.Count}개 항목");
             return result;
         }
         catch (OperationCanceledException)

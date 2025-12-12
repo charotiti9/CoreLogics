@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Common.UI;
@@ -13,8 +13,6 @@ namespace Core.Game.States
     {
         public void Enter(GameContext context)
         {
-            Debug.Log("[InitializeState] 게임 시스템 초기화 시작");
-
             // 비동기 초기화 시작 (Fire-and-forget)
             InitializeAsync(context).Forget();
         }
@@ -29,7 +27,6 @@ namespace Core.Game.States
             try
             {
                 // 1. UIManager는 EagerMonoSingleton으로 씬에 배치되어 Awake에서 자동 초기화됨
-                Debug.Log("[InitializeState] UIManager가 씬에 배치되어 있어야 합니다.");
 
                 // 2. 다른 싱글톤 매니저들도 EagerMonoSingleton을 사용하므로 씬에 배치되어야 함
                 // AudioManager, PoolManager 등은 Awake에서 자동 초기화됨
@@ -41,7 +38,6 @@ namespace Core.Game.States
 
                 // 4. 초기화 완료 표시
                 context.IsInitialized = true;
-                Debug.Log("[InitializeState] 모든 시스템 초기화 완료");
 
                 // 5. 다음 상태로 자동 전환 (TitleState)
                 // 주의: 실제 프로젝트에서는 TitleState를 구현해야 합니다

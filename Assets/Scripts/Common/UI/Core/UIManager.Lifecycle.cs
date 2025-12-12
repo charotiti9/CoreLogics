@@ -29,8 +29,6 @@ namespace Common.UI
 
             // 공통 초기화 실행
             InitializeInternal(mainCanvasObj);
-
-            Debug.Log("UIManager initialized asynchronously");
         }
 
         /// <summary>
@@ -93,8 +91,6 @@ namespace Common.UI
             {
                 HideUIAsync(ui, true, CancellationToken.None).Forget();
             }
-
-            Debug.Log($"Scene loaded: {scene.name}, removed {uisToRemove.Count} UIs");
         }
 
         /// <summary>
@@ -110,8 +106,6 @@ namespace Common.UI
                     ui.OnResolutionChanged(newResolution);
                 }
             }
-
-            Debug.Log($"Resolution changed: {newResolution}, notified {activeUIs.Count} UIs");
         }
 
         protected override void OnDestroy()

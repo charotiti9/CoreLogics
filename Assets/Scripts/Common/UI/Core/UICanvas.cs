@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -61,8 +61,6 @@ namespace Common.UI
                     Debug.LogError($"Layer {layerName} not found in MainCanvas!");
                 }
             }
-
-            Debug.Log($"UICanvas initialized with {layerTransforms.Count} layers");
         }
 
         /// <summary>

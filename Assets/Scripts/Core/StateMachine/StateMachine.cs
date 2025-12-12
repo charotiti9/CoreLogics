@@ -141,8 +141,11 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
 
         currentState?.Exit(context);
 
-        // GameFlowManager에서 등록 해제
-        GameFlowManager.Instance.UnregisterUpdatable(this);
+        // GameFlowManager에서 등록 해제 (애플리케이션 종료 중이 아닐 때만)
+        if (GameFlowManager.IsAlive())
+        {
+            GameFlowManager.Instance.UnregisterUpdatable(this);
+        }
 
         // 정리
         currentState = null;
