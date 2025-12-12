@@ -36,15 +36,15 @@
 
  ## 🚀 Quick Start
   1. Import the UnityPackage
-  2. Install required packages:
-    - Addressable Asset System (Package Manager)
-    - UniTask (git URL: https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask)
-    - DOTween (Asset Store)
-  3. Add to your bootstrap scene:
-    - GameBootstrap component
-    - GameFlowManager component
-    - UIManager component
-    - AudioManager component
+  2. Install required packages:  
+    - Addressable Asset System (Package Manager)  
+    - UniTask ([git URL](https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask))  
+    - DOTween (Asset Store)  
+  3. Add to your bootstrap scene:  
+    - GameBootstrap component  
+    - GameFlowManager component  
+    - UIManager component  
+    - AudioManager component  
   4. See Assets/Scripts/README.md for detailed documentation
   
 ---
@@ -69,16 +69,16 @@
 
  ## 🚀 빠른 시작
   1. UnityPackage 임포트
-  2. 필수 패키지 설치:
-    - Addressable Asset System (Package Manager)
-    - UniTask (git URL: https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask)
-    - DOTween (에셋 스토어)
-  3. 부트스트랩 씬에 추가:
-    - GameBootstrap 컴포넌트
-    - GameFlowManager 컴포넌트
-    - UIManager 컴포넌트
-    - AudioManager 컴포넌트
-  4. 자세한 문서는 Assets/Scripts/README.md 참조
+  2. 필수 패키지 설치:  
+    - Addressable Asset System (Package Manager)  
+    - UniTask ([git URL](https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask))  
+    - DOTween (에셋 스토어)  
+  4. 부트스트랩 씬에 추가:  
+    - GameBootstrap 컴포넌트  
+    - GameFlowManager 컴포넌트  
+    - UIManager 컴포넌트  
+    - AudioManager 컴포넌트  
+  5. 자세한 문서는 Assets/Scripts/README.md 참조
 
 --- 
 
