@@ -39,6 +39,7 @@ public class LocalizedText : MonoBehaviour
         {
             LocalizationManager.Instance.OnLanguageChanged += OnLanguageChanged;
             UpdateText();
+            UpdateFont();
         }
     }
 
@@ -68,6 +69,7 @@ public class LocalizedText : MonoBehaviour
     private void OnLanguageChanged(LanguageType newLanguage)
     {
         UpdateText();
+        UpdateFont();
     }
 
     /// <summary>
@@ -121,5 +123,22 @@ public class LocalizedText : MonoBehaviour
     public void RefreshText()
     {
         UpdateText();
+        UpdateFont();
+    }
+
+    /// <summary>
+    /// 현재 언어에 맞는 폰트 적용
+    /// </summary>
+    private void UpdateFont()
+    {
+        if (text == null)
+            return;
+
+        TMP_FontAsset font = LocalizationManager.Instance.GetCurrentFont();
+
+        if (font != null)
+        {
+            text.font = font;
+        }
     }
 }

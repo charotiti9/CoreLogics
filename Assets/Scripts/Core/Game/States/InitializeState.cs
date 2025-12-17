@@ -31,15 +31,20 @@ namespace Core.Game.States
                 // 2. 다른 싱글톤 매니저들도 EagerMonoSingleton을 사용하므로 씬에 배치되어야 함
                 // AudioManager, PoolManager 등은 Awake에서 자동 초기화됨
 
-                // 3. 데이터 로딩 (예시)
-                // Debug.Log("[InitializeState] 게임 데이터 로딩 중...");
-                // await LoadGameDataAsync(context.CancellationToken);
-                // Debug.Log("[InitializeState] 게임 데이터 로딩 완료");
+                // 3. CSV 데이터 로딩 (CSVManager.Initialize가 내부적으로 LoadAllTablesAsync 호출)
+                Debug.Log("[InitializeState] CSV 데이터 로딩 중...");
+                await CSVManager.Instance.Initialize(context.CancellationToken);
+                Debug.Log("[InitializeState] CSV 데이터 로딩 완료");
 
-                // 4. 초기화 완료 표시
+                // 4. Localization 초기화
+                Debug.Log("[InitializeState] Localization 초기화 중...");
+                LocalizationManager.Instance.Initialize();
+                Debug.Log("[InitializeState] Localization 초기화 완료");
+
+                // 5. 초기화 완료 표시
                 context.IsInitialized = true;
 
-                // 5. 다음 상태로 자동 전환 (TitleState)
+                // 6. 다음 상태로 자동 전환 (TitleState)
                 // 주의: 실제 프로젝트에서는 TitleState를 구현해야 합니다
                 // context.StateMachine.ChangeState(new TitleState());
 

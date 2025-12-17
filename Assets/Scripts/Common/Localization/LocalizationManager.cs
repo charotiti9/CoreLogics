@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using TMPro;
 
 #if UNITY_EDITOR
 using System.IO;
@@ -11,13 +12,17 @@ using System.IO;
 /// 로컬라이징 시스템 관리자
 /// CSV 기반 다국어 지원 제공
 /// </summary>
-public class LocalizationManager : LazySingleton<LocalizationManager>
+public class LocalizationManager : EagerSingleton<LocalizationManager>
 {
     private const string LANGUAGE_PREFS_KEY = "Localization_Language";
 
     private LanguageType currentLanguage;
     private Dictionary<string, LocalizationData> localizationDict;
     private bool isInitialized;
+
+    [Header("Language Fonts")]
+    [SerializeField] private TMP_FontAsset koreanFont;
+    [SerializeField] private TMP_FontAsset englishFont;
 
     /// <summary>
     /// 현재 설정된 언어
@@ -34,9 +39,10 @@ public class LocalizationManager : LazySingleton<LocalizationManager>
     /// 초기화
     /// CSVManager.Initialize() 완료 후 호출 필수
     /// </summary>
-    protected override void Initialize()
+    public void Initialize()
     {
-        base.Initialize();
+        if (isInitialized)
+            return;
 
         // PlayerPrefs에서 저장된 언어 불러오기
         LoadLanguageFromPrefs();
@@ -206,6 +212,24 @@ public class LocalizationManager : LazySingleton<LocalizationManager>
         {
             Debug.LogError($"[LocalizationManager] 포맷 오류: {key}\n{e.Message}");
             return format;
+        }
+    }
+
+    /// <summary>
+    /// 현재 언어에 맞는 폰트 반환
+    /// </summary>
+    public TMP_FontAsset GetCurrentFont()
+    {
+        switch (currentLanguage)
+        {
+            case LanguageType.Korean:
+                return koreanFont;
+
+            case LanguageType.English:
+                return englishFont;
+
+            default:
+                return null;
         }
     }
 
