@@ -1,0 +1,11 @@
+Key,Korean,English
+UI_TITLE_MAIN,메인 메뉴,Main Menu
+UI_BTN_START,게임 시작,Start Game
+UI_BTN_SETTINGS,설정,Settings
+UI_BTN_EXIT,종료,Exit
+UI_BTN_CONTINUE,계속하기,Continue
+GAME_MSG_PAUSE,게임이 일시정지되었습니다,Game Paused
+GAME_MSG_GAMEOVER,게임 오버,Game Over
+GAME_MSG_VICTORY,승리!,Victory!
+GAME_SCORE,점수: {0},Score: {0}
+GAME_LEVEL,레벨 {0},Level {0}
