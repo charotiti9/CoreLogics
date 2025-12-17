@@ -14,6 +14,7 @@
 - https://charotiti9.github.io/devlog/Core-Script-07.html
 - https://charotiti9.github.io/devlog/Core-Script-08.html
 - https://charotiti9.github.io/devlog/Core-Script-09.html
+- https://charotiti9.github.io/devlog/Core-Script-10.html
 
 ---
 
@@ -30,6 +31,7 @@
 ##  🎮 Common Features
   - Audio Manager - Multi-channel audio system (BGM, SFX, Voice) with fade effects and priority queue
   - UI Manager - Complete UI lifecycle management with layers, stacks, and automatic dim control
+  - Localization System - CSV-based multi-language support with automatic font switching and real-time editor preview
 
 ## ⛓️Required
   - Addressable Asset System: Required
@@ -65,6 +67,7 @@
 ##  🎮 일반 시스템
   - Audio Manager - 페이드 효과 및 우선순위 큐를 갖춘 멀티 채널 오디오 시스템 (BGM, SFX, Voice)
   - UI Manager - 레이어, 스택, 자동 Dim 제어를 갖춘 완전한 UI 생명주기 관리
+  - Localization System - 자동 폰트 전환 및 에디터 실시간 미리보기를 지원하는 CSV 기반 다국어 시스템
 
 ## ⛓️필요한 에셋
   - Addressable Asset System: 필수

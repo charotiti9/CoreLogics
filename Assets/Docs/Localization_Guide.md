@@ -84,9 +84,21 @@ SystemLanguage.English → LanguageType.English
 
 ## 기본 사용법
 
+### 0. 초기 설정 (최초 1회)
+
+로컬라이징 시스템을 사용하기 전에 LocalizationManager에 폰트를 설정해야 합니다.
+
+**Unity 에디터에서:**
+1. Hierarchy에서 LocalizationManager GameObject 선택
+2. Inspector에서 Language Fonts 섹션 확인
+3. Korean Font에 한국어 TMP 폰트 할당
+4. English Font에 영어 TMP 폰트 할당
+
+**참고:** LocalizedText 컴포넌트는 언어 변경 시 자동으로 해당 언어의 폰트를 적용합니다.
+
 ### 1. LocalizedText 컴포넌트 사용 (UI)
 
-가장 쉬운 방법입니다. TMP_Text에 LocalizedText 컴포넌트를 추가하면 자동으로 번역됩니다.
+가장 쉬운 방법입니다. TMP_Text에 LocalizedText 컴포넌트를 추가하면 자동으로 번역되고 폰트도 자동으로 적용됩니다.
 
 **Unity 에디터에서:**
 1. TMP_Text 컴포넌트가 있는 GameObject 선택
@@ -97,11 +109,13 @@ SystemLanguage.English → LanguageType.English
 **장점:**
 - 코드 작성 불필요
 - 언어 변경 시 자동 갱신
+- 언어별 폰트 자동 적용
 - 에디터 실시간 미리보기
 
 ```csharp
 // 별도 코드 작성 불필요
 // Inspector에서 Key만 설정하면 자동으로 동작
+// 언어 변경 시 텍스트와 폰트가 모두 자동으로 갱신됨
 ```
 
 ### 2. 코드에서 텍스트 조회
@@ -572,35 +586,43 @@ public class GameBootstrap : MonoBehaviour
 
 ## 고급 기능
 
-### 언어별 폰트 변경
+### 언어별 폰트 자동 변경
 
-언어에 따라 다른 폰트를 사용해야 하는 경우입니다.
+LocalizationManager에는 언어별 폰트 시스템이 내장되어 있습니다.
 
-**CSV:**
-```csv
-Key,Korean,English
-UI_TITLE,환영합니다,Welcome
+**초기 설정:**
+1. Hierarchy에서 LocalizationManager GameObject 선택
+2. Inspector에서 Language Fonts 섹션 확인
+3. Korean Font에 한국어 TMP 폰트 할당
+4. English Font에 영어 TMP 폰트 할당
+
+**LocalizedText 컴포넌트 사용:**
+```csharp
+// LocalizedText 컴포넌트를 추가하면 자동으로 처리됨
+// 언어 변경 시 텍스트와 함께 폰트도 자동으로 변경됨
 ```
 
-**코드:**
+**수동으로 폰트 가져오기:**
 ```csharp
 using UnityEngine;
 using TMPro;
 
-public class LocalizedFont : MonoBehaviour
+public class CustomTextComponent : MonoBehaviour
 {
-    public TMP_FontAsset koreanFont;
-    public TMP_FontAsset englishFont;
     private TMP_Text text;
-
-    private void Awake()
-    {
-        text = GetComponent<TMP_Text>();
-    }
 
     private void Start()
     {
-        UpdateFont(LocalizationManager.Instance.CurrentLanguage);
+        text = GetComponent<TMP_Text>();
+
+        // 현재 언어에 맞는 폰트 가져오기
+        TMP_FontAsset currentFont = LocalizationManager.Instance.GetCurrentFont();
+        if (currentFont != null)
+        {
+            text.font = currentFont;
+        }
+
+        // 언어 변경 이벤트 구독
         LocalizationManager.Instance.OnLanguageChanged += OnLanguageChanged;
     }
 
@@ -614,24 +636,19 @@ public class LocalizedFont : MonoBehaviour
 
     private void OnLanguageChanged(LanguageType newLanguage)
     {
-        UpdateFont(newLanguage);
-    }
-
-    private void UpdateFont(LanguageType language)
-    {
-        switch (language)
+        // 새 언어에 맞는 폰트로 변경
+        TMP_FontAsset newFont = LocalizationManager.Instance.GetCurrentFont();
+        if (newFont != null)
         {
-            case LanguageType.Korean:
-                text.font = koreanFont;
-                break;
-
-            case LanguageType.English:
-                text.font = englishFont;
-                break;
+            text.font = newFont;
         }
     }
 }
 ```
+
+**참고:**
+- LocalizedText 컴포넌트를 사용하면 폰트 변경이 자동으로 처리되므로 위 코드를 작성할 필요가 없습니다.
+- 커스텀 텍스트 컴포넌트를 만들 때만 위와 같이 수동으로 폰트를 변경하세요.
 
 ### 복수형 처리
 
