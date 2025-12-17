@@ -39,7 +39,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     /// 초기화
     /// CSVManager.Initialize() 완료 후 호출 필수
     /// </summary>
-    public void Initialize()
+    public void InitializeLocalizeCSV()
     {
         if (isInitialized)
             return;
