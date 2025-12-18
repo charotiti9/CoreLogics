@@ -91,10 +91,19 @@ public class LocalizedText : MonoBehaviour
         }
         else
         {
+            // 런타임이지만 아직 초기화되지 않았으면 업데이트 건너뛰기
+            // OnLanguageChanged 이벤트를 통해 나중에 자동으로 업데이트됨
+            if (!LocalizationManager.Instance.IsInitialized)
+                return;
+
             // 런타임에는 정상적으로 조회
             localizedText = LocalizationManager.Instance.GetText(key);
         }
 #else
+        // 빌드 모드에서 초기화되지 않았으면 업데이트 건너뛰기
+        if (!LocalizationManager.Instance.IsInitialized)
+            return;
+
         // 빌드 모드에서는 항상 런타임 조회
         localizedText = LocalizationManager.Instance.GetText(key);
 #endif
@@ -145,10 +154,18 @@ public class LocalizedText : MonoBehaviour
         }
         else
         {
+            // 런타임이지만 아직 초기화되지 않았으면 업데이트 건너뛰기
+            if (!LocalizationManager.Instance.IsInitialized)
+                return;
+
             // 런타임에는 정상적으로 조회
             font = LocalizationManager.Instance.GetCurrentFont();
         }
 #else
+        // 빌드 모드에서 초기화되지 않았으면 업데이트 건너뛰기
+        if (!LocalizationManager.Instance.IsInitialized)
+            return;
+
         // 빌드 모드에서는 항상 런타임 조회
         font = LocalizationManager.Instance.GetCurrentFont();
 #endif

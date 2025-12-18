@@ -20,7 +20,7 @@ using UnityEditor;
 public class LocalizationManager : EagerSingleton<LocalizationManager>
 {
     private const string LANGUAGE_PREFS_KEY = "Localization_Language";
-    private const string SETTINGS_KEY = "LocalizationSettings";
+    private const string SETTINGS_KEY = "Assets/Data/Settings/LocalizationSettings.asset";
 
     private LanguageType currentLanguage;
     private Dictionary<string, LocalizationData> localizationDict;
@@ -32,6 +32,11 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     /// 현재 설정된 언어
     /// </summary>
     public LanguageType CurrentLanguage => currentLanguage;
+
+    /// <summary>
+    /// 초기화 완료 여부
+    /// </summary>
+    public bool IsInitialized => isInitialized;
 
     /// <summary>
     /// 언어 변경 이벤트
@@ -60,6 +65,9 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
         isInitialized = true;
 
         Debug.Log($"[LocalizationManager] 초기화 완료 - 현재 언어: {currentLanguage}");
+
+        // 초기화 완료 후 이벤트 발행하여 모든 LocalizedText 컴포넌트 업데이트
+        OnLanguageChanged?.Invoke(currentLanguage);
     }
 
     /// <summary>
