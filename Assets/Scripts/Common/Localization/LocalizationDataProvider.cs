@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Core.Utilities;
@@ -83,7 +83,6 @@ public class LocalizationDataProvider
             return GetMissingKeyText(key);
         }
 
-        // switch-case로 직접 필드 접근 (리플렉션 제거 - 100배 이상 성능 향상)
         string text;
         switch (language)
         {
@@ -173,7 +172,10 @@ public class LocalizationDataProvider
         string csvPath = Path.Combine(Application.dataPath, "Data/CSV/LocalizationData.csv");
 
         if (!File.Exists(csvPath))
+        {
+            GameLogger.LogWarning($"{csvPath}를 찾지 못했습니다.");
             return;
+        }
 
         try
         {
@@ -263,9 +265,16 @@ public class LocalizationDataProvider
                     break;
             }
 
-            return string.IsNullOrEmpty(text) ? GetMissingKeyText(key) : text;
+            if (string.IsNullOrEmpty(text))
+            {
+                GameLogger.LogWarning($"[{key}]의 내용이 비어있습니다.");
+                return GetMissingKeyText(key);
+            }
+
+            return text;
         }
 
+        GameLogger.LogWarning($"editorCache에서 [{key}]를 찾지 못했습니다.");
         return GetMissingKeyText(key);
     }
 #endif
