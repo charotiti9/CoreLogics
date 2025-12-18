@@ -1,3 +1,4 @@
+﻿using Core.Utilities;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -20,14 +21,14 @@ namespace Common.UI
         {
             if (canvas == null)
             {
-                Debug.LogError("Canvas is null!");
+                GameLogger.LogError("Canvas가 null입니다.");
                 return Vector2.zero;
             }
 
             RectTransform canvasRect = canvas.GetComponent<RectTransform>();
             if (canvasRect == null)
             {
-                Debug.LogError("Canvas RectTransform is null!");
+                GameLogger.LogError("Canvas의 RectTransform이 null 입니다.");
                 return Vector2.zero;
             }
 
@@ -65,14 +66,14 @@ namespace Common.UI
         {
             if (rectTransform == null)
             {
-                Debug.LogError("RectTransform is null!");
+                GameLogger.LogError("RectTransform이 null입니다.");
                 return Vector2.zero;
             }
 
             Canvas canvas = rectTransform.GetComponentInParent<Canvas>();
             if (canvas == null)
             {
-                Debug.LogError("Canvas not found in parent!");
+                GameLogger.LogError("parent에서 Canvas를 찾지 못했습니다.");
                 return Vector2.zero;
             }
 
@@ -119,7 +120,7 @@ namespace Common.UI
 
             if (worldCamera == null)
             {
-                Debug.LogError("World camera is null!");
+                GameLogger.LogError("World camera가 null입니다.");
                 return Vector3.zero;
             }
 
@@ -133,14 +134,14 @@ namespace Common.UI
             Canvas canvas = UIManager.Instance.GetCanvas(layer);
             if (canvas == null)
             {
-                Debug.LogError($"Canvas for layer {layer} not found!");
+                GameLogger.LogError($"{layer} 레이어의 Canvas를 찾을 수 없습니다.");
                 return Vector3.zero;
             }
 
             CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
             if (scaler == null)
             {
-                Debug.LogError($"CanvasScaler not found on layer {layer}!");
+                GameLogger.LogError($"{layer} 레이어의 CanvasScaler를 찾을 수 없습니다.");
                 return Vector3.zero;
             }
 
@@ -193,7 +194,7 @@ namespace Common.UI
 
             if (worldCamera == null || canvas == null)
             {
-                Debug.LogError("Camera or Canvas is null!");
+                GameLogger.LogError("Camera 혹은 Canvas가 null입니다.");
                 return Vector2.zero;
             }
 

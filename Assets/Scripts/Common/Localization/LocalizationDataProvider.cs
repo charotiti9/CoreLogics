@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Core.Utilities;
 
 #if UNITY_EDITOR
 using System.IO;
@@ -41,7 +42,7 @@ public class LocalizationDataProvider
 
         if (dataList == null || dataList.Count == 0)
         {
-            Debug.LogWarning("[LocalizationDataProvider] LocalizationData가 비어있습니다. CSV 파일을 확인하세요.");
+            GameLogger.LogWarning("[LocalizationDataProvider] LocalizationData가 비어있습니다. CSV 파일을 확인하세요.");
             return;
         }
 
@@ -52,20 +53,20 @@ public class LocalizationDataProvider
 
             if (string.IsNullOrEmpty(data.Key))
             {
-                Debug.LogWarning($"[LocalizationDataProvider] 빈 키 발견 (행 {i + 1}), 스킵합니다.");
+                GameLogger.LogWarning($"[LocalizationDataProvider] 빈 키 발견 (행 {i + 1}), 스킵합니다.");
                 continue;
             }
 
             if (localizationDict.ContainsKey(data.Key))
             {
-                Debug.LogWarning($"[LocalizationDataProvider] 중복 키 발견: {data.Key}");
+                GameLogger.LogWarning($"[LocalizationDataProvider] 중복 키 발견: {data.Key}");
                 continue;
             }
 
             localizationDict[data.Key] = data;
         }
 
-        Debug.Log($"[LocalizationDataProvider] 로컬라이징 데이터 로드 완료: {localizationDict.Count}개");
+        GameLogger.Log($"[LocalizationDataProvider] 로컬라이징 데이터 로드 완료: {localizationDict.Count}개");
     }
 
     /// <summary>
@@ -78,7 +79,7 @@ public class LocalizationDataProvider
 
         if (!localizationDict.TryGetValue(key, out LocalizationData data))
         {
-            Debug.LogWarning($"[LocalizationDataProvider] 키를 찾을 수 없음: {key}");
+            GameLogger.LogWarning($"[LocalizationDataProvider] 키를 찾을 수 없음: {key}");
             return GetMissingKeyText(key);
         }
 
@@ -99,7 +100,7 @@ public class LocalizationDataProvider
 
         if (string.IsNullOrEmpty(text))
         {
-            Debug.LogWarning($"[LocalizationDataProvider] 키 '{key}'의 '{language}' 번역이 비어있습니다.");
+            GameLogger.LogWarning($"[LocalizationDataProvider] 키 '{key}'의 '{language}' 번역이 비어있습니다.");
             return GetMissingKeyText(key);
         }
 
@@ -123,7 +124,7 @@ public class LocalizationDataProvider
         }
         catch (FormatException e)
         {
-            Debug.LogError($"[LocalizationDataProvider] 포맷 오류: {key}\n{e.Message}");
+            GameLogger.LogError($"[LocalizationDataProvider] 포맷 오류: {key}\n{e.Message}");
             return format;
         }
     }
@@ -226,7 +227,7 @@ public class LocalizationDataProvider
         }
         catch (Exception e)
         {
-            Debug.LogError($"[LocalizationDataProvider] 에디터 CSV 캐시 로드 실패: {e.Message}");
+            GameLogger.LogError($"[LocalizationDataProvider] 에디터 CSV 캐시 로드 실패: {e.Message}");
         }
     }
 

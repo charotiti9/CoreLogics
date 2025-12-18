@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Core.Utilities;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -24,7 +25,7 @@ namespace Common.UI
         {
             if (mainCanvasObject == null)
             {
-                Debug.LogError("MainCanvas object is null!");
+                GameLogger.LogError("MainCanvas object가 null 입니다.");
                 return;
             }
 
@@ -33,7 +34,7 @@ namespace Common.UI
 
             if (mainCanvas == null)
             {
-                Debug.LogError("Canvas component not found on MainCanvas!");
+                GameLogger.LogError("MainCanvas에서 Canvas 컴포넌트를 찾을 수 없었습니다.");
                 return;
             }
 
@@ -53,12 +54,12 @@ namespace Common.UI
                     }
                     else
                     {
-                        Debug.LogError($"RectTransform component not found on layer {layerName}!");
+                        GameLogger.LogError($"{layerName} 레이어에서 RectTransform 컴포넌트를 찾을 수 없었습니다.");
                     }
                 }
                 else
                 {
-                    Debug.LogError($"Layer {layerName} not found in MainCanvas!");
+                    GameLogger.LogError($"{layerName} 레이어를 MainCanvas에서 찾을 수 없었습니다.");
                 }
             }
         }
@@ -87,7 +88,7 @@ namespace Common.UI
                 return rectTransform;
             }
 
-            Debug.LogError($"Layer {layer} not found!");
+            GameLogger.LogError($"{layer} 레이어를 찾을 수 없었습니다.");
             return null;
         }
     }

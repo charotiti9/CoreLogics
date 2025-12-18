@@ -2,6 +2,7 @@
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Common.UI;
+using Core.Utilities;
 
 namespace Core.Game.States
 {
@@ -32,14 +33,14 @@ namespace Core.Game.States
                 // AudioManager, PoolManager 등은 Awake에서 자동 초기화됨
 
                 // 3. CSV 데이터 로딩 (CSVManager.Initialize가 내부적으로 LoadAllTablesAsync 호출)
-                Debug.Log("[InitializeState] CSV 데이터 로딩 중...");
+                GameLogger.Log("[InitializeState] CSV 데이터 로딩 중...");
                 await CSVManager.Instance.Initialize(context.CancellationToken);
-                Debug.Log("[InitializeState] CSV 데이터 로딩 완료");
+                GameLogger.Log("[InitializeState] CSV 데이터 로딩 완료");
 
                 // 4. Localization 초기화
-                Debug.Log("[InitializeState] Localization 초기화 중...");
+                GameLogger.Log("[InitializeState] Localization 초기화 중...");
                 await LocalizationManager.Instance.InitializeLocalizeCSVAsync(context.CancellationToken);
-                Debug.Log("[InitializeState] Localization 초기화 완료");
+                GameLogger.Log("[InitializeState] Localization 초기화 완료");
 
                 // 5. 초기화 완료 표시
                 context.IsInitialized = true;
@@ -48,15 +49,15 @@ namespace Core.Game.States
                 // 주의: 실제 프로젝트에서는 TitleState를 구현해야 합니다
                 // context.StateMachine.ChangeState(new TitleState());
 
-                Debug.Log("[InitializeState] 초기화 완료. 다음 상태로 전환하세요.");
+                GameLogger.Log("[InitializeState] 초기화 완료. 다음 상태로 전환하세요.");
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("[InitializeState] 초기화가 취소되었습니다.");
+                GameLogger.Log("[InitializeState] 초기화가 취소되었습니다.");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InitializeState] 초기화 실패: {ex.Message}\n{ex.StackTrace}");
+                GameLogger.LogError($"[InitializeState] 초기화 실패: {ex.Message}\n{ex.StackTrace}");
 
                 // 초기화 실패 시 처리
                 // 예: 에러 UI 표시, 재시도, 게임 종료 등
@@ -70,7 +71,7 @@ namespace Core.Game.States
 
         public void Exit(GameContext context)
         {
-            Debug.Log("[InitializeState] 상태 종료");
+            GameLogger.Log("[InitializeState] 상태 종료");
         }
     }
 }

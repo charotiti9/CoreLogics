@@ -6,6 +6,7 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Core.Utilities;
 
 /// <summary>
 /// CSV 파일 파싱 유틸리티 (개선 버전)
@@ -58,7 +59,7 @@ public static class CSVParser
 
             if (csvFile == null)
             {
-                Debug.LogError($"[CSVParser] CSV 파일을 찾을 수 없습니다: {fullPath}");
+                GameLogger.LogError($"[CSVParser] CSV 파일을 찾을 수 없습니다: {fullPath}");
                 return new List<T>();
             }
 
@@ -67,12 +68,12 @@ public static class CSVParser
         }
         catch (OperationCanceledException)
         {
-            Debug.LogWarning($"[CSVParser] CSV 로드 취소됨: {fullPath}");
+            GameLogger.LogWarning($"[CSVParser] CSV 로드 취소됨: {fullPath}");
             return new List<T>();
         }
         catch (Exception e)
         {
-            Debug.LogError($"[CSVParser] CSV 로드 실패: {fullPath}\n{e.Message}");
+            GameLogger.LogError($"[CSVParser] CSV 로드 실패: {fullPath}\n{e.Message}");
             return new List<T>();
         }
         finally
@@ -94,7 +95,7 @@ public static class CSVParser
 
         if (lines.Length < 2)
         {
-            Debug.LogError($"[CSVParser] CSV 파일이 비어있거나 헤더만 존재합니다: {filePath}");
+            GameLogger.LogError($"[CSVParser] CSV 파일이 비어있거나 헤더만 존재합니다: {filePath}");
             return new List<T>();
         }
 
@@ -103,7 +104,7 @@ public static class CSVParser
 
         if (headers.Length == 0)
         {
-            Debug.LogError($"[CSVParser] 헤더를 파싱할 수 없습니다: {filePath}");
+            GameLogger.LogError($"[CSVParser] 헤더를 파싱할 수 없습니다: {filePath}");
             return new List<T>();
         }
 
@@ -128,7 +129,7 @@ public static class CSVParser
 
             if (values.Length != headers.Length)
             {
-                Debug.LogWarning($"[CSVParser] 라인 {i + 1}의 컬럼 수가 헤더와 다릅니다. 스킵합니다.");
+                GameLogger.LogWarning($"[CSVParser] 라인 {i + 1}의 컬럼 수가 헤더와 다릅니다. 스킵합니다.");
                 continue;
             }
 
@@ -145,7 +146,7 @@ public static class CSVParser
                 // CSV 인젝션 방어
                 if (IsCSVInjectionRisk(value))
                 {
-                    Debug.LogWarning($"[CSVParser] CSV 인젝션 위험 감지: {value} (라인 {i + 1})");
+                    GameLogger.LogWarning($"[CSVParser] CSV 인젝션 위험 감지: {value} (라인 {i + 1})");
                     value = "'" + value; // 이스케이프 처리
                 }
 
@@ -156,7 +157,7 @@ public static class CSVParser
                 {
                     if (mode == ParseMode.Strict)
                     {
-                        Debug.LogWarning($"[CSVParser] 변환 실패로 라인 {i + 1} 스킵 (Strict 모드)");
+                        GameLogger.LogWarning($"[CSVParser] 변환 실패로 라인 {i + 1} 스킵 (Strict 모드)");
                         hasError = true;
                         break;
                     }
@@ -221,7 +222,7 @@ public static class CSVParser
                 }
                 else
                 {
-                    Debug.LogWarning($"[CSVParser] 필드/프로퍼티를 찾을 수 없습니다: {headerName} (타입: {type.Name})");
+                    GameLogger.LogWarning($"[CSVParser] 필드/프로퍼티를 찾을 수 없습니다: {headerName} (타입: {type.Name})");
                     mappers.Add(mapper);
                     continue;
                 }
@@ -368,7 +369,7 @@ public static class CSVParser
                     return enumValue;
                 }
 
-                Debug.LogError($"[CSVParser] Enum 변환 실패: '{value}' → {typeToConvert.Name}");
+                GameLogger.LogError($"[CSVParser] Enum 변환 실패: '{value}' → {typeToConvert.Name}");
                 return Activator.CreateInstance(typeToConvert);
             }
 
@@ -393,7 +394,7 @@ public static class CSVParser
         }
         catch (Exception e)
         {
-            Debug.LogError($"[CSVParser] 값 변환 실패: '{value}' → {targetType.Name}\n{e.Message}");
+            GameLogger.LogError($"[CSVParser] 값 변환 실패: '{value}' → {targetType.Name}\n{e.Message}");
 
             if (targetType.IsValueType)
                 return Activator.CreateInstance(targetType);

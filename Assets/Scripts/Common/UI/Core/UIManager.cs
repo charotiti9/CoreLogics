@@ -10,6 +10,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using Core.Pool;
 using Core.Addressable;
+using Core.Utilities;
 
 namespace Common.UI
 {
@@ -85,7 +86,7 @@ namespace Common.UI
             // 이미 표시 중인 UI가 있으면 반환
             if (activeUIs.TryGetValue(type, out UIBase existingUI) && existingUI != null)
             {
-                Debug.LogWarning($"UI {type.Name} is already showing!");
+                GameLogger.LogWarning($"UI {type.Name}가 이미 보여지고 있습니다.");
                 return existingUI as T;
             }
 
@@ -99,7 +100,7 @@ namespace Common.UI
 
                 if (ui == null)
                 {
-                    Debug.LogError($"Failed to load UI: {type.Name}");
+                    GameLogger.LogError($"{type.Name} UI를 로드하는 데에 실패했습니다.");
                     return null;
                 }
 
@@ -129,7 +130,7 @@ namespace Common.UI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error showing UI {type.Name}: {ex.Message}");
+                GameLogger.LogError($"{type.Name} UI를 보이는 데에 에러가 났습니다: {ex.Message}");
                 return null;
             }
             finally
@@ -193,7 +194,7 @@ namespace Common.UI
                 if (ui == null)
                 {
                     activeUIs.Remove(type);
-                    Debug.LogWarning($"[UIManager] {type.Name}이(가) Dictionary에 null로 남아있어 제거했습니다.");
+                    GameLogger.LogWarning($"[UIManager] {type.Name}이(가) Dictionary에 null로 남아있어 제거했습니다.");
                     return null;
                 }
                 return ui as T;

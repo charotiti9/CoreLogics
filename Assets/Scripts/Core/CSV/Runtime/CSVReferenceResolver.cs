@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// CSV 테이블간 참조를 자동으로 해결
@@ -50,7 +51,7 @@ public static class CSVReferenceResolver
                 // 참조 테이블 가져오기
                 if (!allTables.TryGetValue(attr.ReferenceTableName, out object refTable))
                 {
-                    Debug.LogError($"[CSVReferenceResolver] 참조 테이블 없음: {attr.ReferenceTableName}");
+                    GameLogger.LogError($"[CSVReferenceResolver] 참조 테이블 없음: {attr.ReferenceTableName}");
                     continue;
                 }
 
@@ -60,7 +61,7 @@ public static class CSVReferenceResolver
 
                 if (idField == null)
                 {
-                    Debug.LogWarning($"[CSVReferenceResolver] ID 필드 없음: {idFieldName} in {type.Name}");
+                    GameLogger.LogWarning($"[CSVReferenceResolver] ID 필드 없음: {idFieldName} in {type.Name}");
                     continue;
                 }
 
@@ -83,7 +84,7 @@ public static class CSVReferenceResolver
                 }
                 else
                 {
-                    Debug.LogWarning($"[CSVReferenceResolver] 참조 객체 찾기 실패: {attr.ReferenceTableName}.{attr.ReferenceColumnName} = {idValue}");
+                    GameLogger.LogWarning($"[CSVReferenceResolver] 참조 객체 찾기 실패: {attr.ReferenceTableName}.{attr.ReferenceColumnName} = {idValue}");
                 }
             }
         }
@@ -105,7 +106,7 @@ public static class CSVReferenceResolver
         FieldInfo idFieldInfo = elementType.GetField(columnName);
         if (idFieldInfo == null)
         {
-            Debug.LogError($"[CSVReferenceResolver] 컬럼 없음: {columnName} in {elementType.Name}");
+            GameLogger.LogError($"[CSVReferenceResolver] 컬럼 없음: {columnName} in {elementType.Name}");
             return null;
         }
 

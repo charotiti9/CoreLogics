@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -8,6 +8,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using Core.Pool;
+using Core.Utilities;
 
 namespace Common.UI
 {
@@ -88,7 +89,7 @@ namespace Common.UI
 
             if (keysToRemove.Count > 0)
             {
-                Debug.LogWarning($"[UIManager] {keysToRemove.Count}개의 null 참조를 정리합니다.");
+                GameLogger.LogWarning($"[UIManager] {keysToRemove.Count}개의 null 참조를 정리합니다.");
 
                 foreach (var key in keysToRemove)
                 {

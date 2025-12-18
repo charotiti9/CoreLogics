@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Core.Utilities;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace Common.UI
@@ -36,7 +37,7 @@ namespace Common.UI
         {
             if (targetCanvas == null)
             {
-                Debug.LogError("[UIInputBlocker] Canvas가 설정되지 않았습니다. UIManager.InitializeAsync()를 먼저 호출하세요.");
+                GameLogger.LogError("[UIInputBlocker] Canvas가 설정되지 않았습니다. UIManager.InitializeAsync()를 먼저 호출하세요.");
                 return;
             }
 

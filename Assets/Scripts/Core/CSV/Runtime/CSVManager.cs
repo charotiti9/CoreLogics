@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// 모든 CSV 데이터를 Generic하게 관리하는 싱글톤
@@ -20,7 +21,7 @@ public class CSVManager : LazySingleton<CSVManager>
     /// <param name="cancellationToken">취소 토큰</param>
     public async UniTask Initialize(CancellationToken cancellationToken = default)
     {
-        Debug.Log("[CSVManager] 초기화 시작");
+        GameLogger.Log("[CSVManager] 초기화 시작");
 
         // 1. Assembly에서 ICSVData 타입 찾기
         FindAllCSVDataTypes();
@@ -34,7 +35,7 @@ public class CSVManager : LazySingleton<CSVManager>
         // 4. 참조 해결
         ResolveAllReferences();
 
-        Debug.Log("[CSVManager] 초기화 완료");
+        GameLogger.Log("[CSVManager] 초기화 완료");
     }
 
     /// <summary>
@@ -56,7 +57,7 @@ public class CSVManager : LazySingleton<CSVManager>
                 !type.IsAbstract)
             {
                 csvDataTypes.Add(type);
-                Debug.Log($"[CSVManager] CSV 타입 발견: {type.Name}");
+                GameLogger.Log($"[CSVManager] CSV 타입 발견: {type.Name}");
             }
         }
     }
@@ -75,11 +76,11 @@ public class CSVManager : LazySingleton<CSVManager>
             {
                 CSVSchema schema = await CSVSchemaParser.ParseSchemaAsync(tableName, cancellationToken);
                 schemas[tableName] = schema;
-                Debug.Log($"[CSVManager] 스키마 로드 완료: {tableName}");
+                GameLogger.Log($"[CSVManager] 스키마 로드 완료: {tableName}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVManager] 스키마 로드 실패: {tableName}\n{e.Message}");
+                GameLogger.LogError($"[CSVManager] 스키마 로드 실패: {tableName}\n{e.Message}");
             }
         }
     }
@@ -102,7 +103,7 @@ public class CSVManager : LazySingleton<CSVManager>
 
                 if (method == null)
                 {
-                    Debug.LogError($"[CSVManager] ParseAsync 메서드를 찾을 수 없음");
+                    GameLogger.LogError($"[CSVManager] ParseAsync 메서드를 찾을 수 없음");
                     continue;
                 }
 
@@ -113,7 +114,7 @@ public class CSVManager : LazySingleton<CSVManager>
 
                 if (task == null)
                 {
-                    Debug.LogError($"[CSVManager] ParseAsync 호출 실패: {tableName}");
+                    GameLogger.LogError($"[CSVManager] ParseAsync 호출 실패: {tableName}");
                     continue;
                 }
 
@@ -144,11 +145,11 @@ public class CSVManager : LazySingleton<CSVManager>
                     }
                 }
 
-                Debug.Log($"[CSVManager] 테이블 로드 완료: {tableName}");
+                GameLogger.Log($"[CSVManager] 테이블 로드 완료: {tableName}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVManager] 테이블 로드 실패: {tableName}\n{e.Message}\n{e.StackTrace}");
+                GameLogger.LogError($"[CSVManager] 테이블 로드 실패: {tableName}\n{e.Message}\n{e.StackTrace}");
             }
         }
     }
@@ -187,18 +188,18 @@ public class CSVManager : LazySingleton<CSVManager>
 
                 if (method == null)
                 {
-                    Debug.LogError($"[CSVManager] ResolveReferences 메서드를 찾을 수 없음");
+                    GameLogger.LogError($"[CSVManager] ResolveReferences 메서드를 찾을 수 없음");
                     continue;
                 }
 
                 MethodInfo genericMethod = method.MakeGenericMethod(type);
                 genericMethod.Invoke(null, new object[] { tables[type], tableMap });
 
-                Debug.Log($"[CSVManager] 참조 해결 완료: {type.Name}");
+                GameLogger.Log($"[CSVManager] 참조 해결 완료: {type.Name}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVManager] 참조 해결 실패: {type.Name}\n{e.Message}");
+                GameLogger.LogError($"[CSVManager] 참조 해결 실패: {type.Name}\n{e.Message}");
             }
         }
     }
@@ -223,7 +224,7 @@ public class CSVManager : LazySingleton<CSVManager>
         if (tables.TryGetValue(typeof(T), out object table))
             return (List<T>)table;
 
-        Debug.LogWarning($"[CSVManager] 테이블 없음: {typeof(T).Name}");
+        GameLogger.LogWarning($"[CSVManager] 테이블 없음: {typeof(T).Name}");
         return new List<T>();
     }
 
@@ -235,7 +236,7 @@ public class CSVManager : LazySingleton<CSVManager>
         if (schemas.TryGetValue(tableName, out CSVSchema schema))
             return schema;
 
-        Debug.LogWarning($"[CSVManager] 스키마 없음: {tableName}");
+        GameLogger.LogWarning($"[CSVManager] 스키마 없음: {tableName}");
         return null;
     }
 

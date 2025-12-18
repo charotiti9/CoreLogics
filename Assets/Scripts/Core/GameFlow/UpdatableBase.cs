@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// IUpdatable 구현을 위한 베이스 클래스
@@ -77,7 +78,7 @@ public abstract class UpdatableBase : IUpdatable
     {
         if (isRegistered && !isDisposed)
         {
-            Debug.LogWarning($"[메모리 누수 경고] {GetType().Name}이(가) Dispose()되지 않고 소멸되었습니다. " +
+            GameLogger.LogWarning($"[메모리 누수 경고] {GetType().Name}이(가) Dispose()되지 않고 소멸되었습니다. " +
                            $"GameFlowManager.UnregisterUpdatable()을 호출하지 않았습니다.");
         }
     }

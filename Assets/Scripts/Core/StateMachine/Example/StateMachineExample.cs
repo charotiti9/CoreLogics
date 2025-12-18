@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Core.Utilities;
+using UnityEngine;
 
 public class StateMachineExample : MonoBehaviour
 {
@@ -31,7 +32,7 @@ public class State : IState<ExampleContext>
 {
     public void Enter(ExampleContext context)
     {
-        Debug.Log("State 진입");
+        GameLogger.Log("State 진입");
         context.Value = 2;
     }
 
@@ -42,7 +43,7 @@ public class State : IState<ExampleContext>
 
     public void Exit(ExampleContext context)
     {
-        Debug.Log("State 종료");
+        GameLogger.Log("State 종료");
     }
 }
 

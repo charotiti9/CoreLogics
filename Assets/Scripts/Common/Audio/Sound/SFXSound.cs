@@ -3,6 +3,7 @@ using Core.Addressable;
 using Core.Pool;
 using System.Threading;
 using UnityEngine;
+using Core.Utilities;
 
 namespace Common.Audio
 {
@@ -30,7 +31,7 @@ namespace Common.Audio
 
             if (audioSource == null)
             {
-                Debug.LogError("[SFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
+                GameLogger.LogError("[SFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
             }
         }
 

@@ -3,6 +3,7 @@ using System.Threading;
 using UnityEngine;
 using TMPro;
 using Cysharp.Threading.Tasks;
+using Core.Utilities;
 
 /// <summary>
 /// 로컬라이징 시스템 관리자 (Facade)
@@ -67,7 +68,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
 
         isInitialized = true;
 
-        Debug.Log($"[LocalizationManager] 초기화 완료 - 현재 언어: {CurrentLanguage}");
+        GameLogger.Log($"[LocalizationManager] 초기화 완료 - 현재 언어: {CurrentLanguage}");
 
         // 초기화 완료 후 이벤트 발행하여 모든 LocalizedText 컴포넌트 업데이트
         OnLanguageChanged?.Invoke(CurrentLanguage);
@@ -87,7 +88,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
         // 이벤트 발행 - 모든 LocalizedText 컴포넌트 갱신
         OnLanguageChanged?.Invoke(language);
 
-        Debug.Log($"[LocalizationManager] 언어 변경됨: {language}");
+        GameLogger.Log($"[LocalizationManager] 언어 변경됨: {language}");
     }
 
     /// <summary>
@@ -100,7 +101,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
 
         if (!isInitialized)
         {
-            Debug.LogWarning("[LocalizationManager] 아직 초기화되지 않았습니다. InitializeLocalizeCSVAsync()를 먼저 호출하세요.");
+            GameLogger.LogWarning("[LocalizationManager] 아직 초기화되지 않았습니다. InitializeLocalizeCSVAsync()를 먼저 호출하세요.");
             return $"[{key}]";
         }
 
@@ -116,7 +117,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     {
         if (!isInitialized)
         {
-            Debug.LogWarning("[LocalizationManager] 아직 초기화되지 않았습니다. InitializeLocalizeCSVAsync()를 먼저 호출하세요.");
+            GameLogger.LogWarning("[LocalizationManager] 아직 초기화되지 않았습니다. InitializeLocalizeCSVAsync()를 먼저 호출하세요.");
             return $"[{key}]";
         }
 
@@ -131,7 +132,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     {
         if (!fontProvider.IsLoaded)
         {
-            Debug.LogWarning("[LocalizationManager] LocalizationSettings가 로드되지 않았습니다.");
+            GameLogger.LogWarning("[LocalizationManager] LocalizationSettings가 로드되지 않았습니다.");
             return null;
         }
 

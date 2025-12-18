@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// _Schema.csv 파일을 파싱하여 CSVSchema 생성
@@ -27,7 +28,7 @@ public static class CSVSchemaParser
 
         if (columns == null || columns.Count == 0)
         {
-            Debug.LogError($"[CSVSchemaParser] 스키마 파싱 실패: {schemaFileName}");
+            GameLogger.LogError($"[CSVSchemaParser] 스키마 파싱 실패: {schemaFileName}");
             return new CSVSchema { TableName = tableName };
         }
 

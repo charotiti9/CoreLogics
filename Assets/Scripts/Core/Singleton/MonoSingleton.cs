@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// MonoBehaviour 싱글톤 패턴 구현
@@ -42,7 +43,7 @@ public abstract class EagerMonoSingleton<T> : MonoBehaviour where T : MonoBehavi
             // 여전히 null이면 경고
             if (_instance == null)
             {
-                Debug.LogError($"[EagerMonoSingleton] {typeof(T).Name}이(가) 씬에 존재하지 않습니다. " +
+                GameLogger.LogError($"[EagerMonoSingleton] {typeof(T).Name}이(가) 씬에 존재하지 않습니다. " +
                                $"씬에 GameObject를 배치하고 {typeof(T).Name} 컴포넌트를 추가해주세요.");
             }
 
@@ -67,7 +68,7 @@ public abstract class EagerMonoSingleton<T> : MonoBehaviour where T : MonoBehavi
         // 이미 인스턴스가 존재하는 경우
         if (_instance != null && _instance != this)
         {
-            Debug.LogWarning($"[EagerMonoSingleton] {typeof(T).Name}이(가) 씬에 중복으로 존재합니다. " +
+            GameLogger.LogWarning($"[EagerMonoSingleton] {typeof(T).Name}이(가) 씬에 중복으로 존재합니다. " +
                            $"중복 인스턴스를 제거합니다.");
             Destroy(gameObject);
             return;

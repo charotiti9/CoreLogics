@@ -1,3 +1,4 @@
+﻿using Core.Utilities;
 using UnityEngine;
 
 /// <summary>
@@ -15,7 +16,7 @@ public static class GameFlowExtensions
     {
         if (updatable == null)
         {
-            Debug.LogError("[GameFlow] null IUpdatable을 등록할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null IUpdatable을 등록할 수 없습니다.");
             return;
         }
 
@@ -25,7 +26,7 @@ public static class GameFlowExtensions
         }
         else
         {
-            Debug.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {updatable.GetType().Name} 등록 실패");
+            GameLogger.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {updatable.GetType().Name} 등록 실패");
         }
     }
 
@@ -36,7 +37,7 @@ public static class GameFlowExtensions
     {
         if (updatable == null)
         {
-            Debug.LogError("[GameFlow] null IUpdatable을 등록 해제할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null IUpdatable을 등록 해제할 수 없습니다.");
             return;
         }
 
@@ -55,7 +56,7 @@ public static class GameFlowExtensions
     {
         if (fixedUpdatable == null)
         {
-            Debug.LogError("[GameFlow] null IFixedUpdatable을 등록할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null IFixedUpdatable을 등록할 수 없습니다.");
             return;
         }
 
@@ -65,7 +66,7 @@ public static class GameFlowExtensions
         }
         else
         {
-            Debug.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {fixedUpdatable.GetType().Name} 등록 실패");
+            GameLogger.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {fixedUpdatable.GetType().Name} 등록 실패");
         }
     }
 
@@ -76,7 +77,7 @@ public static class GameFlowExtensions
     {
         if (fixedUpdatable == null)
         {
-            Debug.LogError("[GameFlow] null IFixedUpdatable을 등록 해제할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null IFixedUpdatable을 등록 해제할 수 없습니다.");
             return;
         }
 
@@ -95,7 +96,7 @@ public static class GameFlowExtensions
     {
         if (lateUpdatable == null)
         {
-            Debug.LogError("[GameFlow] null ILateUpdatable을 등록할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null ILateUpdatable을 등록할 수 없습니다.");
             return;
         }
 
@@ -105,7 +106,7 @@ public static class GameFlowExtensions
         }
         else
         {
-            Debug.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {lateUpdatable.GetType().Name} 등록 실패");
+            GameLogger.LogWarning($"[GameFlow] GameFlowManager가 없습니다. {lateUpdatable.GetType().Name} 등록 실패");
         }
     }
 
@@ -116,7 +117,7 @@ public static class GameFlowExtensions
     {
         if (lateUpdatable == null)
         {
-            Debug.LogError("[GameFlow] null ILateUpdatable을 등록 해제할 수 없습니다.");
+            GameLogger.LogError("[GameFlow] null ILateUpdatable을 등록 해제할 수 없습니다.");
             return;
         }
 

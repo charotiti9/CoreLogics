@@ -1,5 +1,6 @@
 ﻿using Core.Addressable;
 using Core.Pool;
+using Core.Utilities;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace Common.Audio
 
             if (audioSource == null)
             {
-                Debug.LogError("[SpatialSFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
+                GameLogger.LogError("[SpatialSFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
                 return;
             }
 

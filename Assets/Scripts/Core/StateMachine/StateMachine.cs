@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// Generic 상태 머신.
@@ -54,7 +55,7 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
     {
         if (context == null)
         {
-            Debug.LogError("[StateMachine] Context가 null입니다. 초기화를 중단합니다.");
+            GameLogger.LogError("[StateMachine] Context가 null입니다. 초기화를 중단합니다.");
             return;
         }
 
@@ -74,14 +75,14 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
     {
         if (newState == null)
         {
-            Debug.LogError("[StateMachine] 전환하려는 상태가 null입니다.");
+            GameLogger.LogError("[StateMachine] 전환하려는 상태가 null입니다.");
             return false;
         }
 
         // 상태 전환 검증
         if (TransitionValidator != null && !TransitionValidator(currentState, newState))
         {
-            Debug.LogWarning($"[StateMachine] 상태 전환이 거부되었습니다. " +
+            GameLogger.LogWarning($"[StateMachine] 상태 전환이 거부되었습니다. " +
                            $"From: {currentState?.GetType().Name ?? "null"}, " +
                            $"To: {newState.GetType().Name}");
             return false;
@@ -111,7 +112,7 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
     {
         if (previousState == null)
         {
-            Debug.LogWarning("[StateMachine] 이전 상태가 없습니다. 되돌릴 수 없습니다.");
+            GameLogger.LogWarning("[StateMachine] 이전 상태가 없습니다. 되돌릴 수 없습니다.");
             return false;
         }
 
@@ -165,7 +166,7 @@ public class StateMachine<TContext> : IUpdatable where TContext : class
         // Dispose()를 호출하지 않았을 때 경고
         if (!isDisposed)
         {
-            Debug.LogWarning($"[메모리 누수 경고] StateMachine<{typeof(TContext).Name}>이(가) Dispose()되지 않고 소멸되었습니다.");
+            GameLogger.LogWarning($"[메모리 누수 경고] StateMachine<{typeof(TContext).Name}>이(가) Dispose()되지 않고 소멸되었습니다.");
         }
     }
 }

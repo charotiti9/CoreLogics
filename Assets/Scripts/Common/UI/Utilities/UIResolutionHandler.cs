@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Core.Utilities;
 
 namespace Common.UI
 {
@@ -92,7 +93,7 @@ namespace Common.UI
             }
             else
             {
-                Debug.LogWarning("[UIResolutionHandler] GameFlowManager가 없습니다. 해상도 감지가 동작하지 않습니다.");
+                GameLogger.LogWarning("[UIResolutionHandler] GameFlowManager가 없습니다. 해상도 감지가 동작하지 않습니다.");
             }
         }
 
@@ -148,7 +149,7 @@ namespace Common.UI
                 // 인스턴스 이벤트 발생
                 OnResolutionChangedEvent?.Invoke(currentResolution);
 
-                Debug.Log($"해상도 변경 감지: {currentResolution.x}x{currentResolution.y}");
+                GameLogger.Log($"해상도 변경 감지: {currentResolution.x}x{currentResolution.y}");
             }
         }
 

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using Common.UI;
+using Core.Utilities;
 
 namespace Core.Game.States
 {
@@ -12,7 +13,7 @@ namespace Core.Game.States
     {
         public void Enter(GameContext context)
         {
-            Debug.Log("[TitleState] 타이틀 화면 진입");
+            GameLogger.Log("[TitleState] 타이틀 화면 진입");
 
             // UIManager를 통해 타이틀 UI 표시
             // 주의: TitleUI 클래스가 실제로 존재해야 합니다
@@ -39,7 +40,7 @@ namespace Core.Game.States
             //     context.StateMachine.ChangeState(new GameplayState());
             // };
 
-            Debug.Log("[TitleState] 타이틀 UI 표시 완료 (예시)");
+            GameLogger.Log("[TitleState] 타이틀 UI 표시 완료 (예시)");
         }
 
         /// <summary>
@@ -53,7 +54,7 @@ namespace Core.Game.States
 
         public void Exit(GameContext context)
         {
-            Debug.Log("[TitleState] 타이틀 화면 종료");
+            GameLogger.Log("[TitleState] 타이틀 화면 종료");
 
             // 타이틀 UI 숨김 (UIManager는 싱글톤이므로 Instance로 접근)
             // UIManager.Instance.Hide<TitleUI>();

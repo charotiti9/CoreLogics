@@ -3,6 +3,7 @@ using UnityEngine;
 using TMPro;
 using Cysharp.Threading.Tasks;
 using Core.Addressable;
+using Core.Utilities;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -50,12 +51,12 @@ public class LocalizationFontProvider
 
         if (settings == null)
         {
-            Debug.LogError("[LocalizationFontProvider] LocalizationSettings 로드 실패!");
+            GameLogger.LogError("[LocalizationFontProvider] LocalizationSettings 로드 실패!");
             isLoaded = false;
         }
         else
         {
-            Debug.Log("[LocalizationFontProvider] LocalizationSettings 로드 완료");
+            GameLogger.Log("[LocalizationFontProvider] LocalizationSettings 로드 완료");
             isLoaded = true;
         }
     }
@@ -67,7 +68,7 @@ public class LocalizationFontProvider
     {
         if (settings == null)
         {
-            Debug.LogWarning("[LocalizationFontProvider] LocalizationSettings가 로드되지 않았습니다.");
+            GameLogger.LogWarning("[LocalizationFontProvider] LocalizationSettings가 로드되지 않았습니다.");
             return null;
         }
 
@@ -87,7 +88,7 @@ public class LocalizationFontProvider
 
         if (editorSettings == null)
         {
-            Debug.LogWarning($"[LocalizationFontProvider] 에디터에서 설정 파일을 찾을 수 없음: {settingsPath}");
+            GameLogger.LogWarning($"[LocalizationFontProvider] 에디터에서 설정 파일을 찾을 수 없음: {settingsPath}");
             return null;
         }
 

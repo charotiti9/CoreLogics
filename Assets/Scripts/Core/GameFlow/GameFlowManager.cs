@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// 전체 게임 플로우를 관리하는 싱글톤 매니저
@@ -465,32 +466,32 @@ public class GameFlowManager : EagerMonoSingleton<GameFlowManager>
     public void LogRegisteredObjects()
     {
         int totalCount = registeredUpdatables.Count + registeredFixedUpdatables.Count + registeredLateUpdatables.Count;
-        Debug.Log($"=== GameFlowManager 등록된 객체 현황 ===\n총 {totalCount}개 객체 등록됨");
+        GameLogger.Log($"=== GameFlowManager 등록된 객체 현황 ===\n총 {totalCount}개 객체 등록됨");
 
         if (registeredUpdatables.Count > 0)
         {
-            Debug.Log($"\n[IUpdatable] {registeredUpdatables.Count}개");
+            GameLogger.Log($"\n[IUpdatable] {registeredUpdatables.Count}개");
             foreach (var obj in registeredUpdatables)
             {
-                Debug.Log($"  - {obj}");
+                GameLogger.Log($"  - {obj}");
             }
         }
 
         if (registeredFixedUpdatables.Count > 0)
         {
-            Debug.Log($"\n[IFixedUpdatable] {registeredFixedUpdatables.Count}개");
+            GameLogger.Log($"\n[IFixedUpdatable] {registeredFixedUpdatables.Count}개");
             foreach (var obj in registeredFixedUpdatables)
             {
-                Debug.Log($"  - {obj}");
+                GameLogger.Log($"  - {obj}");
             }
         }
 
         if (registeredLateUpdatables.Count > 0)
         {
-            Debug.Log($"\n[ILateUpdatable] {registeredLateUpdatables.Count}개");
+            GameLogger.Log($"\n[ILateUpdatable] {registeredLateUpdatables.Count}개");
             foreach (var obj in registeredLateUpdatables)
             {
-                Debug.Log($"  - {obj}");
+                GameLogger.Log($"  - {obj}");
             }
         }
     }

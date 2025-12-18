@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Core.Pool;
+using Core.Utilities;
 
 namespace Common.UI
 {
@@ -164,7 +165,7 @@ namespace Common.UI
                 catch(OperationCanceledException)
                 {
                     // 취소된 경우 로그 출력 (정상 동작)
-                    Debug.Log($"[UIBase] {GetType().Name} Show 작업이 취소되었습니다.");
+                    GameLogger.Log($"[UIBase] {GetType().Name} Show 작업이 취소되었습니다.");
                     throw;
                 }
             }
@@ -210,7 +211,7 @@ namespace Common.UI
                 catch (OperationCanceledException)
                 {
                     // 취소된 경우 로그 출력 (정상 동작)
-                    Debug.Log($"[UIBase] {GetType().Name} Hide 작업이 취소되었습니다.");
+                    GameLogger.Log($"[UIBase] {GetType().Name} Hide 작업이 취소되었습니다.");
                     throw;
                 }
             }
@@ -277,7 +278,7 @@ namespace Common.UI
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[UIBase] {GetType().Name} 풀 반환 시 Hide 중 예외 발생: {ex.Message}");
+                GameLogger.LogWarning($"[UIBase] {GetType().Name} 풀 반환 시 Hide 중 예외 발생: {ex.Message}");
             }
         }
 
@@ -329,7 +330,7 @@ namespace Common.UI
             }
             else if (data != null)
             {
-                Debug.LogWarning(
+                GameLogger.LogWarning(
                     $"[UIBase<{typeof(TData).Name}>] 잘못된 데이터 타입: {data.GetType().Name}. " +
                     $"예상 타입: {typeof(TData).Name}");
             }

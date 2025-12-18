@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Core.Utilities;
 
 /// <summary>
 /// 복합 타입 종류
@@ -107,7 +108,7 @@ public static class CSVComplexTypeParser
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVComplexTypeParser] 배열 요소 변환 실패: '{part}' → {elementType.Name}\n{e.Message}");
+                GameLogger.LogError($"[CSVComplexTypeParser] 배열 요소 변환 실패: '{part}' → {elementType.Name}\n{e.Message}");
 
                 // 기본값 설정
                 if (elementType.IsValueType)
@@ -155,7 +156,7 @@ public static class CSVComplexTypeParser
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVComplexTypeParser] 리스트 요소 변환 실패: '{part}' → {elementType.Name}\n{e.Message}");
+                GameLogger.LogError($"[CSVComplexTypeParser] 리스트 요소 변환 실패: '{part}' → {elementType.Name}\n{e.Message}");
             }
         }
 
@@ -192,7 +193,7 @@ public static class CSVComplexTypeParser
 
             if (kv.Length != 2)
             {
-                Debug.LogWarning($"[CSVComplexTypeParser] 잘못된 딕셔너리 형식: '{pair}' (올바른 형식: key:value)");
+                GameLogger.LogWarning($"[CSVComplexTypeParser] 잘못된 딕셔너리 형식: '{pair}' (올바른 형식: key:value)");
                 continue;
             }
 
@@ -209,7 +210,7 @@ public static class CSVComplexTypeParser
             }
             catch (Exception e)
             {
-                Debug.LogError($"[CSVComplexTypeParser] 딕셔너리 페어 변환 실패: '{pair}'\n{e.Message}");
+                GameLogger.LogError($"[CSVComplexTypeParser] 딕셔너리 페어 변환 실패: '{pair}'\n{e.Message}");
             }
         }
 
@@ -236,7 +237,7 @@ public static class CSVComplexTypeParser
 
             if (instance == null)
             {
-                Debug.LogWarning($"[CSVComplexTypeParser] JSON 파싱 결과가 null: {targetType.Name}");
+                GameLogger.LogWarning($"[CSVComplexTypeParser] JSON 파싱 결과가 null: {targetType.Name}");
 
                 if (targetType.IsValueType)
                     return Activator.CreateInstance(targetType);
@@ -247,7 +248,7 @@ public static class CSVComplexTypeParser
         }
         catch (Exception e)
         {
-            Debug.LogError($"[CSVComplexTypeParser] JSON 파싱 실패: {targetType.Name}\nJSON: {value}\n{e.Message}");
+            GameLogger.LogError($"[CSVComplexTypeParser] JSON 파싱 실패: {targetType.Name}\nJSON: {value}\n{e.Message}");
 
             if (targetType.IsValueType)
                 return Activator.CreateInstance(targetType);
@@ -283,7 +284,7 @@ public static class CSVComplexTypeParser
                     return enumValue;
                 }
 
-                Debug.LogError($"[CSVComplexTypeParser] Enum 변환 실패: '{value}' → {typeToConvert.Name}");
+                GameLogger.LogError($"[CSVComplexTypeParser] Enum 변환 실패: '{value}' → {typeToConvert.Name}");
                 return Activator.CreateInstance(typeToConvert);
             }
 
@@ -308,7 +309,7 @@ public static class CSVComplexTypeParser
         }
         catch (Exception e)
         {
-            Debug.LogError($"[CSVComplexTypeParser] 값 변환 실패: '{value}' → {targetType.Name}\n{e.Message}");
+            GameLogger.LogError($"[CSVComplexTypeParser] 값 변환 실패: '{value}' → {targetType.Name}\n{e.Message}");
 
             if (targetType.IsValueType)
                 return Activator.CreateInstance(targetType);

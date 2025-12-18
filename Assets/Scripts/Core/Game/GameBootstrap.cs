@@ -1,6 +1,7 @@
 using System.Threading;
 using UnityEngine;
 using Core.Game.States;
+using Core.Utilities;
 
 namespace Core.Game
 {
@@ -23,7 +24,7 @@ namespace Core.Game
             // DontDestroyOnLoad 설정
             DontDestroyOnLoad(gameObject);
 
-            Debug.Log("[GameBootstrap] 게임 부트스트랩 시작");
+            GameLogger.Log("[GameBootstrap] 게임 부트스트랩 시작");
 
             // CancellationTokenSource 생성
             cts = new CancellationTokenSource();
@@ -43,12 +44,12 @@ namespace Core.Game
             // InitializeState로 시작
             stateMachine.ChangeState(new InitializeState());
 
-            Debug.Log("[GameBootstrap] StateMachine 시작됨 (InitializeState)");
+            GameLogger.Log("[GameBootstrap] StateMachine 시작됨 (InitializeState)");
         }
 
         private void OnDestroy()
         {
-            Debug.Log("[GameBootstrap] 게임 부트스트랩 종료");
+            GameLogger.Log("[GameBootstrap] 게임 부트스트랩 종료");
 
             // CancellationTokenSource 취소
             cts?.Cancel();
