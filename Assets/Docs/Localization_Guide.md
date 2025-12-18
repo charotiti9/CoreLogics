@@ -86,13 +86,17 @@ SystemLanguage.English → LanguageType.English
 
 ### 0. 초기 설정 (최초 1회)
 
-로컬라이징 시스템을 사용하기 전에 LocalizationManager에 폰트를 설정해야 합니다.
+로컬라이징 시스템을 사용하기 전에 폰트 설정 파일을 생성해야 합니다.
 
 **Unity 에디터에서:**
-1. Hierarchy에서 LocalizationManager GameObject 선택
-2. Inspector에서 Language Fonts 섹션 확인
-3. Korean Font에 한국어 TMP 폰트 할당
-4. English Font에 영어 TMP 폰트 할당
+1. Project 창에서 `Assets/Data/Settings/` 폴더 생성 (없다면)
+2. 우클릭 → Create → Game → LocalizationSettings
+3. Inspector에서 Language Fonts 섹션 확인
+4. Korean Font에 한국어 TMP 폰트 할당
+5. English Font에 영어 TMP 폰트 할당
+6. Window → Asset Management → Addressables → Groups
+7. LocalizationSettings.asset을 Addressable Groups에 드래그
+8. Address를 "LocalizationSettings"로 설정
 
 **참고:** LocalizedText 컴포넌트는 언어 변경 시 자동으로 해당 언어의 폰트를 적용합니다.
 
@@ -565,19 +569,36 @@ public class DialogSystem : MonoBehaviour
 
 ```csharp
 using UnityEngine;
+using Cysharp.Threading.Tasks;
+using System.Threading;
 
 public class GameBootstrap : MonoBehaviour
 {
+    private CancellationTokenSource cts;
+
     private void Awake()
     {
-        // CSVManager 초기화 (LocalizationData 로드)
-        // CSVManager는 이미 초기화되어 있다고 가정
+        cts = new CancellationTokenSource();
+        InitializeAsync(cts.Token).Forget();
+    }
 
-        // LocalizationManager 초기화
+    private async UniTaskVoid InitializeAsync(CancellationToken cancellationToken)
+    {
+        // CSVManager 초기화 (LocalizationData 로드)
+        await CSVManager.Instance.Initialize(cancellationToken);
+
+        // LocalizationManager 비동기 초기화
         // 자동으로 PlayerPrefs에서 언어 로드 또는 시스템 언어 감지
-        LocalizationManager.Instance.Initialize();
+        // LocalizationSettings.asset을 Addressable로 로드
+        await LocalizationManager.Instance.InitializeLocalizeCSVAsync(cancellationToken);
 
         Debug.Log($"게임 시작 - 언어: {LocalizationManager.Instance.CurrentLanguage}");
+    }
+
+    private void OnDestroy()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
     }
 }
 ```
@@ -588,21 +609,23 @@ public class GameBootstrap : MonoBehaviour
 
 ### 언어별 폰트 자동 변경
 
-LocalizationManager에는 언어별 폰트 시스템이 내장되어 있습니다.
+LocalizationManager는 LocalizationSettings.asset을 통해 언어별 폰트를 관리합니다.
 
 **초기 설정:**
-1. Hierarchy에서 LocalizationManager GameObject 선택
+1. Project 창에서 `Assets/Data/Settings/LocalizationSettings.asset` 선택
 2. Inspector에서 Language Fonts 섹션 확인
 3. Korean Font에 한국어 TMP 폰트 할당
 4. English Font에 영어 TMP 폰트 할당
+5. Addressable Groups에서 Address가 "LocalizationSettings"로 설정되어 있는지 확인
 
 **LocalizedText 컴포넌트 사용:**
 ```csharp
 // LocalizedText 컴포넌트를 추가하면 자동으로 처리됨
 // 언어 변경 시 텍스트와 함께 폰트도 자동으로 변경됨
+// 에디터 모드에서도 미리보기 지원!
 ```
 
-**수동으로 폰트 가져오기:**
+**수동으로 폰트 가져오기 (런타임):**
 ```csharp
 using UnityEngine;
 using TMPro;
@@ -615,7 +638,7 @@ public class CustomTextComponent : MonoBehaviour
     {
         text = GetComponent<TMP_Text>();
 
-        // 현재 언어에 맞는 폰트 가져오기
+        // 현재 언어에 맞는 폰트 가져오기 (런타임 전용)
         TMP_FontAsset currentFont = LocalizationManager.Instance.GetCurrentFont();
         if (currentFont != null)
         {
@@ -646,9 +669,33 @@ public class CustomTextComponent : MonoBehaviour
 }
 ```
 
+**에디터 전용 폰트 가져오기:**
+```csharp
+#if UNITY_EDITOR
+using UnityEngine;
+using TMPro;
+
+public class EditorTextPreview : MonoBehaviour
+{
+    private void OnValidate()
+    {
+        var text = GetComponent<TMP_Text>();
+
+        // 에디터 모드에서 폰트 미리보기
+        TMP_FontAsset font = LocalizationManager.Instance.GetCurrentFontInEditor();
+        if (font != null)
+        {
+            text.font = font;
+        }
+    }
+}
+#endif
+```
+
 **참고:**
 - LocalizedText 컴포넌트를 사용하면 폰트 변경이 자동으로 처리되므로 위 코드를 작성할 필요가 없습니다.
 - 커스텀 텍스트 컴포넌트를 만들 때만 위와 같이 수동으로 폰트를 변경하세요.
+- 에디터 미리보기가 필요하면 `GetCurrentFontInEditor()`를 사용하세요.
 
 ### 복수형 처리
 
@@ -904,9 +951,9 @@ A. 다음을 확인하세요:
 A. LocalizationManager가 초기화되지 않았을 수 있습니다.
 
 ```csharp
-// GameBootstrap이나 초기 씬에서 초기화
-CSVManager.Instance.Initialize(); // 먼저 CSV 로드
-LocalizationManager.Instance.Initialize(); // 이후 Localization 초기화
+// GameBootstrap이나 초기 씬에서 비동기 초기화
+await CSVManager.Instance.Initialize(cancellationToken); // 먼저 CSV 로드
+await LocalizationManager.Instance.InitializeLocalizeCSVAsync(cancellationToken); // 이후 Localization 초기화
 ```
 
 ### Q6. 특수문자를 사용할 수 있나요?
@@ -981,5 +1028,7 @@ string text = LocalizationManager.Instance.GetText("UI_SCORE", 1000);
 **추가 정보:**
 - 소스 코드: `Assets/Scripts/Common/Localization/LocalizationManager.cs`
 - UI 컴포넌트: `Assets/Scripts/Common/Localization/LocalizedText.cs`
+- 폰트 설정: `Assets/Scripts/Common/Localization/LocalizationSettings.cs`
 - 언어 타입: `Assets/Scripts/Common/Localization/LanguageType.cs`
 - CSV 파일: `Assets/Data/CSV/LocalizationData.csv`
+- 설정 파일: `Assets/Data/Settings/LocalizationSettings.asset`
