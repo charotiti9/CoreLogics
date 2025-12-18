@@ -12,5 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d1f203fdf8df39249a4686391e2c3656, type: 3}
   m_Name: LocalizationSettings
   m_EditorClassIdentifier: Assembly-CSharp::LocalizationSettings
-  koreanFont: {fileID: 11400000, guid: e2ca7fcbf3f841342958877faf78be31, type: 2}
-  englishFont: {fileID: 11400000, guid: be3c32fc53d1c244fa071458eb5b4e54, type: 2}
+  languageFonts:
+  - Language: 0
+    Font: {fileID: 11400000, guid: e2ca7fcbf3f841342958877faf78be31, type: 2}
+  - Language: 1
+    Font: {fileID: 11400000, guid: be3c32fc53d1c244fa071458eb5b4e54, type: 2}

@@ -1,3 +1,4 @@
+﻿using System;
 using TMPro;
 using UnityEngine;
 
@@ -10,12 +11,15 @@ using UnityEngine;
 [ExecuteAlways] // 에디터 모드에서도 실행
 public class LocalizedText : MonoBehaviour
 {
-    [Header("Localization")]
     [SerializeField]
     [Tooltip("로컬라이징 키 (예: UI_BTN_START)")]
     private string key;
 
     private TMP_Text text;
+
+#if UNITY_EDITOR
+    private string lastValidatedKey;
+#endif
 
     /// <summary>
     /// 로컬라이징 키
@@ -57,11 +61,19 @@ public class LocalizedText : MonoBehaviour
     /// </summary>
     private void OnValidate()
     {
-        if (text == null)
-            text = GetComponent<TMP_Text>();
+#if UNITY_EDITOR
+        // key가 실제로 변경되었을 때만 업데이트
+        if (lastValidatedKey != key)
+        {
+            lastValidatedKey = key;
 
-        UpdateText();
-        UpdateFont();
+            if (text == null)
+                text = GetComponent<TMP_Text>();
+
+            UpdateText();
+            UpdateFont();
+        }
+#endif
     }
 
     /// <summary>
@@ -74,6 +86,24 @@ public class LocalizedText : MonoBehaviour
     }
 
     /// <summary>
+    /// 에디터와 런타임 환경에 따라 적절한 데이터를 가져오는 헬퍼 메서드
+    /// </summary>
+    private T GetLocalizationValue<T>(Func<T> runtimeGetter, Func<T> editorGetter) where T : class
+    {
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            return editorGetter();
+        }
+#endif
+
+        if (!LocalizationManager.Instance.IsInitialized)
+            return null;
+
+        return runtimeGetter();
+    }
+
+    /// <summary>
     /// 텍스트 업데이트 (에디터/런타임 모두 지원)
     /// </summary>
     private void UpdateText()
@@ -81,34 +111,15 @@ public class LocalizedText : MonoBehaviour
         if (text == null || string.IsNullOrEmpty(key))
             return;
 
-        string localizedText;
+        string localizedText = GetLocalizationValue(
+            () => LocalizationManager.Instance.GetText(key),
+            () => LocalizationManager.Instance.GetTextInEditor(key)
+        );
 
-#if UNITY_EDITOR
-        // 에디터 모드에서는 동기적으로 CSV 직접 로드
-        if (!Application.isPlaying)
+        if (localizedText != null)
         {
-            localizedText = LocalizationManager.Instance.GetTextInEditor(key);
+            text.text = localizedText;
         }
-        else
-        {
-            // 런타임이지만 아직 초기화되지 않았으면 업데이트 건너뛰기
-            // OnLanguageChanged 이벤트를 통해 나중에 자동으로 업데이트됨
-            if (!LocalizationManager.Instance.IsInitialized)
-                return;
-
-            // 런타임에는 정상적으로 조회
-            localizedText = LocalizationManager.Instance.GetText(key);
-        }
-#else
-        // 빌드 모드에서 초기화되지 않았으면 업데이트 건너뛰기
-        if (!LocalizationManager.Instance.IsInitialized)
-            return;
-
-        // 빌드 모드에서는 항상 런타임 조회
-        localizedText = LocalizationManager.Instance.GetText(key);
-#endif
-
-        text.text = localizedText;
     }
 
     /// <summary>
@@ -144,31 +155,10 @@ public class LocalizedText : MonoBehaviour
         if (text == null)
             return;
 
-        TMP_FontAsset font;
-
-#if UNITY_EDITOR
-        // 에디터 모드에서는 동기적으로 폰트 로드
-        if (!Application.isPlaying)
-        {
-            font = LocalizationManager.Instance.GetCurrentFontInEditor();
-        }
-        else
-        {
-            // 런타임이지만 아직 초기화되지 않았으면 업데이트 건너뛰기
-            if (!LocalizationManager.Instance.IsInitialized)
-                return;
-
-            // 런타임에는 정상적으로 조회
-            font = LocalizationManager.Instance.GetCurrentFont();
-        }
-#else
-        // 빌드 모드에서 초기화되지 않았으면 업데이트 건너뛰기
-        if (!LocalizationManager.Instance.IsInitialized)
-            return;
-
-        // 빌드 모드에서는 항상 런타임 조회
-        font = LocalizationManager.Instance.GetCurrentFont();
-#endif
+        TMP_FontAsset font = GetLocalizationValue(
+            () => LocalizationManager.Instance.GetCurrentFont(),
+            () => LocalizationManager.Instance.GetCurrentFontInEditor()
+        );
 
         if (font != null)
         {
