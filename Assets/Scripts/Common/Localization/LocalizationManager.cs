@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 using TMPro;
+using Cysharp.Threading.Tasks;
+using Core.Addressable;
+
 
 #if UNITY_EDITOR
 using System.IO;
+using UnityEditor;
 #endif
 
 /// <summary>
@@ -15,14 +20,13 @@ using System.IO;
 public class LocalizationManager : EagerSingleton<LocalizationManager>
 {
     private const string LANGUAGE_PREFS_KEY = "Localization_Language";
+    private const string SETTINGS_KEY = "LocalizationSettings";
 
     private LanguageType currentLanguage;
     private Dictionary<string, LocalizationData> localizationDict;
     private bool isInitialized;
 
-    [Header("Language Fonts")]
-    [SerializeField] private TMP_FontAsset koreanFont;
-    [SerializeField] private TMP_FontAsset englishFont;
+    private LocalizationSettings settings;
 
     /// <summary>
     /// 현재 설정된 언어
@@ -39,7 +43,7 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     /// 초기화
     /// CSVManager.Initialize() 완료 후 호출 필수
     /// </summary>
-    public void InitializeLocalizeCSV()
+    public async UniTask InitializeLocalizeCSVAsync(CancellationToken cancellationToken)
     {
         if (isInitialized)
             return;
@@ -50,9 +54,34 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
         // CSV 데이터를 Dictionary로 캐싱
         BuildLocalizationDictionary();
 
+        // LocalizationSettings 로드
+        await LoadSettingsAsync(cancellationToken);
+
         isInitialized = true;
 
         Debug.Log($"[LocalizationManager] 초기화 완료 - 현재 언어: {currentLanguage}");
+    }
+
+    /// <summary>
+    /// Addressable을 통해 LocalizationSettings 로드
+    /// </summary>
+    private async UniTask LoadSettingsAsync(CancellationToken cancellationToken)
+    {
+        var handle = await AddressableLoader.Instance.LoadAssetAsync<LocalizationSettings>(
+            SETTINGS_KEY,
+            cancellationToken
+        );
+
+        settings = handle;
+
+        if (settings == null)
+        {
+            Debug.LogError("[LocalizationManager] LocalizationSettings 로드 실패!");
+        }
+        else
+        {
+            Debug.Log("[LocalizationManager] LocalizationSettings 로드 완료");
+        }
     }
 
     /// <summary>
@@ -220,17 +249,13 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
     /// </summary>
     public TMP_FontAsset GetCurrentFont()
     {
-        switch (currentLanguage)
+        if (settings == null)
         {
-            case LanguageType.Korean:
-                return koreanFont;
-
-            case LanguageType.English:
-                return englishFont;
-
-            default:
-                return null;
+            Debug.LogWarning("[LocalizationManager] LocalizationSettings가 로드되지 않았습니다.");
+            return null;
         }
+
+        return settings.GetFont(currentLanguage);
     }
 
 #if UNITY_EDITOR
@@ -327,6 +352,32 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
 
         // 에디터 모드에서는 시스템 언어 감지
         return DetectSystemLanguage();
+    }
+
+    /// <summary>
+    /// 에디터 전용: 폰트를 동기적으로 로드하여 반환
+    /// LocalizedText 컴포넌트의 에디터 미리보기용
+    /// </summary>
+    public TMP_FontAsset GetCurrentFontInEditor()
+    {
+        // 런타임이면 일반 GetCurrentFont() 사용
+        if (Application.isPlaying && isInitialized)
+        {
+            return GetCurrentFont();
+        }
+
+        // 에디터 모드에서 AssetDatabase로 직접 로드
+        string settingsPath = "Assets/Data/Settings/LocalizationSettings.asset";
+        var editorSettings = AssetDatabase.LoadAssetAtPath<LocalizationSettings>(settingsPath);
+
+        if (editorSettings == null)
+        {
+            Debug.LogWarning($"[LocalizationManager] 에디터에서 설정 파일을 찾을 수 없음: {settingsPath}");
+            return null;
+        }
+
+        LanguageType editorLanguage = GetEditorLanguage();
+        return editorSettings.GetFont(editorLanguage);
     }
 #endif
 }

@@ -61,6 +61,7 @@ public class LocalizedText : MonoBehaviour
             text = GetComponent<TMP_Text>();
 
         UpdateText();
+        UpdateFont();
     }
 
     /// <summary>
@@ -127,14 +128,30 @@ public class LocalizedText : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 언어에 맞는 폰트 적용
+    /// 현재 언어에 맞는 폰트 적용 (에디터/런타임 모두 지원)
     /// </summary>
     private void UpdateFont()
     {
         if (text == null)
             return;
 
-        TMP_FontAsset font = LocalizationManager.Instance.GetCurrentFont();
+        TMP_FontAsset font;
+
+#if UNITY_EDITOR
+        // 에디터 모드에서는 동기적으로 폰트 로드
+        if (!Application.isPlaying)
+        {
+            font = LocalizationManager.Instance.GetCurrentFontInEditor();
+        }
+        else
+        {
+            // 런타임에는 정상적으로 조회
+            font = LocalizationManager.Instance.GetCurrentFont();
+        }
+#else
+        // 빌드 모드에서는 항상 런타임 조회
+        font = LocalizationManager.Instance.GetCurrentFont();
+#endif
 
         if (font != null)
         {

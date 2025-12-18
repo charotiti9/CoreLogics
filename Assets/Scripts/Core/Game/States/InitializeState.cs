@@ -38,7 +38,7 @@ namespace Core.Game.States
 
                 // 4. Localization 초기화
                 Debug.Log("[InitializeState] Localization 초기화 중...");
-                LocalizationManager.Instance.InitializeLocalizeCSV();
+                await LocalizationManager.Instance.InitializeLocalizeCSVAsync(context.CancellationToken);
                 Debug.Log("[InitializeState] Localization 초기화 완료");
 
                 // 5. 초기화 완료 표시
