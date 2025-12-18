@@ -14,9 +14,33 @@ Localization 시스템은 게임의 다국어를 중앙에서 관리하는 시�
 
 ---
 
+## 아키텍처
+
+### 시스템 구조
+
+LocalizationManager는 내부적으로 여러 컴포넌트로 구성되어 있지만, 사용자는 간단한 API만 사용하면 됩니다.
+
+```
+LocalizationManager (간단한 API 제공)
+   ├── LocalizationDataProvider (CSV 데이터 관리)
+   ├── LanguagePreferences (언어 설정 관리)
+   └── LocalizationFontProvider (폰트 관리)
+      ↓
+LocalizationData (CSV 데이터)
+      ↓
+LocalizedText (UI 컴포넌트)
+```
+
+**내부 컴포넌트:**
+- **LocalizationDataProvider**: CSV 데이터 로딩 및 텍스트 조회
+- **LanguagePreferences**: PlayerPrefs 저장/로드, 시스템 언어 감지
+- **LocalizationFontProvider**: Addressable을 통한 폰트 로딩
+
+---
+
 ## 핵심 개념
 
-### 1. 3개 레이어 시스템
+### 1. 시스템 레이어
 
 ```
 1. LocalizationManager (중앙 관리자)
@@ -27,7 +51,7 @@ Localization 시스템은 게임의 다국어를 중앙에서 관리하는 시�
 ```
 
 **각 레이어의 역할:**
-- **LocalizationManager**: 언어 설정 및 텍스트 조회
+- **LocalizationManager**: 언어 설정 및 텍스트 조회 API 제공
 - **LocalizationData**: CSV에서 자동 생성된 데이터 클래스
 - **LocalizedText**: TMP_Text에 자동으로 번역 텍스트 표시
 
@@ -96,7 +120,9 @@ SystemLanguage.English → LanguageType.English
 5. English Font에 영어 TMP 폰트 할당
 6. Window → Asset Management → Addressables → Groups
 7. LocalizationSettings.asset을 Addressable Groups에 드래그
-8. Address를 "LocalizationSettings"로 설정
+8. Address를 `Assets/Data/Settings/LocalizationSettings.asset`로 설정 (경로 포함)
+
+**중요:** LocalizationSettings는 **Addressable**을 통해 비동기로 로딩됩니다. 반드시 Addressable Groups에 등록해야 합니다.
 
 **참고:** LocalizedText 컴포넌트는 언어 변경 시 자동으로 해당 언어의 폰트를 적용합니다.
 
@@ -584,12 +610,13 @@ public class GameBootstrap : MonoBehaviour
 
     private async UniTaskVoid InitializeAsync(CancellationToken cancellationToken)
     {
-        // CSVManager 초기화 (LocalizationData 로드)
+        // 1. CSVManager 초기화 (LocalizationData 로드)
         await CSVManager.Instance.Initialize(cancellationToken);
 
-        // LocalizationManager 비동기 초기화
-        // 자동으로 PlayerPrefs에서 언어 로드 또는 시스템 언어 감지
-        // LocalizationSettings.asset을 Addressable로 로드
+        // 2. LocalizationManager 비동기 초기화
+        //    - PlayerPrefs에서 언어 로드 또는 시스템 언어 감지
+        //    - CSV 데이터를 Dictionary로 캐싱
+        //    - LocalizationSettings.asset을 Addressable로 비동기 로드
         await LocalizationManager.Instance.InitializeLocalizeCSVAsync(cancellationToken);
 
         Debug.Log($"게임 시작 - 언어: {LocalizationManager.Instance.CurrentLanguage}");
@@ -603,20 +630,30 @@ public class GameBootstrap : MonoBehaviour
 }
 ```
 
+**초기화 순서:**
+1. **언어 설정 로드**: PlayerPrefs에서 저장된 언어를 불러오거나, 없으면 시스템 언어 감지
+2. **CSV Dictionary 빌드**: LocalizationData를 Dictionary로 캐싱하여 빠른 조회 가능
+3. **LocalizationSettings 로드**: Addressable을 통해 폰트 설정 비동기 로드
+4. **OnLanguageChanged 이벤트 발행**: 모든 LocalizedText 컴포넌트 자동 업데이트
+
 ---
 
 ## 고급 기능
 
 ### 언어별 폰트 자동 변경
 
-LocalizationManager는 LocalizationSettings.asset을 통해 언어별 폰트를 관리합니다.
+LocalizationManager는 LocalizationSettings.asset을 **Addressable**을 통해 로딩하여 언어별 폰트를 관리합니다.
 
 **초기 설정:**
 1. Project 창에서 `Assets/Data/Settings/LocalizationSettings.asset` 선택
 2. Inspector에서 Language Fonts 섹션 확인
 3. Korean Font에 한국어 TMP 폰트 할당
 4. English Font에 영어 TMP 폰트 할당
-5. Addressable Groups에서 Address가 "LocalizationSettings"로 설정되어 있는지 확인
+5. Addressable Groups에서 Address가 `Assets/Data/Settings/LocalizationSettings.asset`로 설정되어 있는지 확인
+
+**LocalizationFontProvider 로딩 방식:**
+- **런타임**: AddressableLoader를 통해 비동기 로딩
+- **에디터**: AssetDatabase를 통해 동기 로딩 (미리보기용)
 
 **LocalizedText 컴포넌트 사용:**
 ```csharp
@@ -696,6 +733,71 @@ public class EditorTextPreview : MonoBehaviour
 - LocalizedText 컴포넌트를 사용하면 폰트 변경이 자동으로 처리되므로 위 코드를 작성할 필요가 없습니다.
 - 커스텀 텍스트 컴포넌트를 만들 때만 위와 같이 수동으로 폰트를 변경하세요.
 - 에디터 미리보기가 필요하면 `GetCurrentFontInEditor()`를 사용하세요.
+
+### 에디터 지원
+
+로컬라이징 시스템은 에디터 모드에서도 완벽하게 동작합니다.
+
+**에디터 전용 기능:**
+- **CSV 파일 변경 감지**: CSV 파일이 수정되면 자동으로 감지하여 캐시 갱신
+- **즉시 미리보기**: Inspector에서 Key를 변경하면 즉시 텍스트와 폰트 업데이트
+- **시스템 언어 감지**: 에디터 언어 설정에 따라 자동으로 언어 선택
+
+**에디터 전용 메서드:**
+```csharp
+#if UNITY_EDITOR
+// CSV 파일을 직접 로드하여 텍스트 조회
+string text = LocalizationManager.Instance.GetTextInEditor("UI_BTN_START");
+
+// AssetDatabase로 폰트 로드
+TMP_FontAsset font = LocalizationManager.Instance.GetCurrentFontInEditor();
+
+// 에디터 언어 감지
+LanguageType editorLang = LocalizationManager.Instance.GetEditorLanguage();
+#endif
+```
+
+**CSV 캐시 시스템:**
+- 에디터 모드에서 CSV 파일의 `LastWriteTime`을 추적
+- 파일이 변경되면 자동으로 캐시 갱신
+- 불필요한 파일 읽기 방지
+
+**LocalizedText 에디터 미리보기:**
+```csharp
+// LocalizedText.cs에서 OnValidate()로 구현
+private void OnValidate()
+{
+    // key가 실제로 변경되었을 때만 업데이트
+    if (lastValidatedKey != key)
+    {
+        UpdateText();  // 에디터 전용 CSV 로드
+        UpdateFont();  // 에디터 전용 AssetDatabase 로드
+    }
+}
+```
+
+### LocalizedText RefreshText 메서드
+
+수동으로 텍스트와 폰트를 강제 갱신해야 할 때 사용합니다.
+
+```csharp
+using UnityEngine;
+
+public class CustomUI : MonoBehaviour
+{
+    [SerializeField] private LocalizedText titleText;
+
+    public void ForceRefresh()
+    {
+        // 텍스트와 폰트 강제 갱신
+        titleText.RefreshText();
+    }
+}
+```
+
+**사용 시점:**
+- 동적으로 LocalizedText 컴포넌트를 추가한 경우
+- 특수한 상황에서 수동 갱신이 필요한 경우
 
 ### 복수형 처리
 
@@ -1026,9 +1128,74 @@ string text = LocalizationManager.Instance.GetText("UI_SCORE", 1000);
 - 에디터 실시간 미리보기
 
 **추가 정보:**
-- 소스 코드: `Assets/Scripts/Common/Localization/LocalizationManager.cs`
-- UI 컴포넌트: `Assets/Scripts/Common/Localization/LocalizedText.cs`
-- 폰트 설정: `Assets/Scripts/Common/Localization/LocalizationSettings.cs`
-- 언어 타입: `Assets/Scripts/Common/Localization/LanguageType.cs`
 - CSV 파일: `Assets/Data/CSV/LocalizationData.csv`
-- 설정 파일: `Assets/Data/Settings/LocalizationSettings.asset`
+- 설정 파일: `Assets/Data/Settings/LocalizationSettings.asset` (Addressable)
+
+---
+
+## 내부 구조 참고
+
+개발자가 시스템을 확장하거나 커스터마이징할 때 참고할 수 있는 내부 구조입니다.
+
+### 파일 구조
+
+```
+Assets/Scripts/Common/Localization/
+├── LocalizationManager.cs         (Facade - 사용자 API 제공)
+├── LocalizationDataProvider.cs    (CSV 데이터 관리)
+├── LanguagePreferences.cs         (언어 설정 관리)
+├── LocalizationFontProvider.cs    (폰트 로딩 관리)
+├── LocalizationSettings.cs        (ScriptableObject - 폰트 설정)
+├── LocalizedText.cs               (UI 컴포넌트)
+└── LanguageType.cs                (언어 enum)
+
+Assets/Data/CSV/
+└── LocalizationData.csv           (번역 데이터)
+
+Assets/Data/Settings/
+└── LocalizationSettings.asset     (폰트 설정 - Addressable)
+
+Assets/Scripts/Data/Generated/
+└── LocalizationData.cs            (CSV에서 자동 생성)
+```
+
+### 컴포넌트 역할
+
+| 컴포넌트 | 역할 | 주요 기능 |
+|---------|------|----------|
+| **LocalizationManager** | Facade (중앙 관리자) | 간단한 API 제공, 이벤트 관리 |
+| **LocalizationDataProvider** | CSV 데이터 관리 | Dictionary 캐싱, 텍스트 조회, 에디터 CSV 캐시 |
+| **LanguagePreferences** | 언어 설정 관리 | PlayerPrefs 저장/로드, 시스템 언어 감지 |
+| **LocalizationFontProvider** | 폰트 로딩 관리 | Addressable 비동기 로딩, 에디터 AssetDatabase 로딩 |
+| **LocalizationSettings** | 폰트 설정 (ScriptableObject) | 언어별 폰트 매핑 |
+| **LocalizedText** | UI 컴포넌트 | 자동 텍스트/폰트 갱신, 에디터 미리보기 |
+
+### 초기화 흐름
+
+```
+1. LocalizationManager.Instance (EagerSingleton 생성)
+   └─> 내부 컴포넌트 생성 (DataProvider, Preferences, FontProvider)
+
+2. InitializeLocalizeCSVAsync() 호출
+   ├─> LanguagePreferences.LoadLanguage()
+   │   └─> PlayerPrefs 로드 또는 시스템 언어 감지
+   │
+   ├─> LocalizationDataProvider.BuildLocalizationDictionary()
+   │   └─> CSVManager에서 LocalizationData 가져와 Dictionary 캐싱
+   │
+   └─> LocalizationFontProvider.LoadSettingsAsync()
+       └─> AddressableLoader로 LocalizationSettings 비동기 로드
+
+3. OnLanguageChanged 이벤트 발행
+   └─> 모든 LocalizedText 컴포넌트 자동 갱신
+```
+
+### 에디터 vs 런타임
+
+| 기능 | 런타임 | 에디터 |
+|------|--------|--------|
+| **CSV 로딩** | CSVManager (Dictionary 캐싱) | 파일 직접 읽기 (변경 감지) |
+| **폰트 로딩** | AddressableLoader (비동기) | AssetDatabase (동기) |
+| **언어 감지** | PlayerPrefs → 시스템 언어 | Application.systemLanguage |
+| **텍스트 조회** | GetText() | GetTextInEditor() |
+| **폰트 조회** | GetCurrentFont() | GetCurrentFontInEditor() |
