@@ -4,8 +4,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using Core.Pool;
@@ -52,9 +50,6 @@ namespace Common.UI
         // MainCanvas Addressable Address
         private const string MAIN_CANVAS_ADDRESS = "MainCanvas";
 
-        // MainCanvas 핸들
-        private AsyncOperationHandle<GameObject> mainCanvasHandle;
-
         [SerializeField]
         private InputActionAsset uiInputActions;
 
@@ -67,9 +62,6 @@ namespace Common.UI
 
         // 활성화된 UI 관리 (Showing, 타입별)
         private readonly Dictionary<Type, UIBase> activeUIs = new Dictionary<Type, UIBase>();
-
-        // Addressable 핸들 관리
-        private readonly Dictionary<Type, AsyncOperationHandle<GameObject>> uiHandles = new Dictionary<Type, AsyncOperationHandle<GameObject>>();
 
         // 초기화 완료 여부
         private bool isInitialized = false;

@@ -4,12 +4,11 @@ using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using Core.Utilities;
+using Core.Addressable;
 
 namespace Common.UI
 {
@@ -43,21 +42,24 @@ namespace Common.UI
             // UIAddress Attribute에서 주소 가져오기
             string address = GetUIAddress(type);
 
-            // Addressable 로드 및 Instantiate
-            var handle = Addressables.InstantiateAsync(address);
-            GameObject uiObj = await handle.ToUniTask(cancellationToken: ct);
+            // AddressableLoader를 통한 Prefab 로드
+            GameObject prefab = await AddressableLoader.Instance.LoadAssetAsync<GameObject>(address, ct);
 
-            if (uiObj == null)
+            if (prefab == null)
             {
-                GameLogger.LogError($"{type.Name} UI를 로드하는 데에 실패했습니다.");
+                GameLogger.LogError($"{type.Name} UI Prefab 로드 실패: {address}");
                 return null;
             }
+
+            // 수동으로 인스턴스화
+            GameObject uiObj = GameObject.Instantiate(prefab);
 
             T ui = uiObj.GetComponent<T>();
             if (ui == null)
             {
                 GameLogger.LogError($"{type.Name} 컴포넌트를 찾을 수 없습니다.");
-                Addressables.ReleaseInstance(handle);
+                GameObject.Destroy(uiObj);
+                AddressableLoader.Instance.Release(address);
                 return null;
             }
 
@@ -75,7 +77,6 @@ namespace Common.UI
 
             // Dictionary 등록
             spawnedUIs[type] = ui;
-            uiHandles[type] = handle;
 
             return ui;
         }
@@ -87,6 +88,9 @@ namespace Common.UI
         {
             Type type = ui.GetType();
 
+            // Address 가져오기 (Spawn 시 사용한 address)
+            string address = GetUIAddress(type);
+
             // 정리 작업
             ui.OnBeforeDestroy();
             ui.DestroyInternal();
@@ -94,12 +98,8 @@ namespace Common.UI
             // Dictionary에서 제거
             spawnedUIs.Remove(type);
 
-            // Addressable 해제
-            if (uiHandles.TryGetValue(type, out var handle) && handle.IsValid())
-            {
-                Addressables.ReleaseInstance(handle);
-                uiHandles.Remove(type);
-            }
+            // AddressableLoader를 통한 해제
+            AddressableLoader.Instance.Release(address);
         }
         /// <summary>
         /// UI를 숨깁니다. (내부 비동기 처리)
@@ -197,13 +197,6 @@ namespace Common.UI
                 foreach (var key in spawnedKeysToRemove)
                 {
                     spawnedUIs.Remove(key);
-
-                    // Addressable 핸들도 해제
-                    if (uiHandles.TryGetValue(key, out var handle) && handle.IsValid())
-                    {
-                        Addressables.ReleaseInstance(handle);
-                        uiHandles.Remove(key);
-                    }
                 }
             }
         }
@@ -220,18 +213,23 @@ namespace Common.UI
                 return existing;
             }
 
-            // 2. Addressable에서 로드
+            // 2. AddressableLoader를 통한 로드
             try
             {
-                mainCanvasHandle = Addressables.InstantiateAsync(MAIN_CANVAS_ADDRESS);
-                GameObject instance = await mainCanvasHandle.ToUniTask(cancellationToken: ct);
+                GameObject prefab = await AddressableLoader.Instance.LoadAssetAsync<GameObject>(MAIN_CANVAS_ADDRESS, ct);
+
+                if (prefab == null)
+                {
+                    throw new InvalidOperationException($"MainCanvas Prefab 로드 실패: {MAIN_CANVAS_ADDRESS}");
+                }
+
+                GameObject instance = GameObject.Instantiate(prefab);
                 instance.name = "MainCanvas";
                 return instance;
             }
             catch (Exception ex)
             {
-                // Fallback 생성하지 않고 명확한 에러 처리
-                throw new InvalidOperationException(
+                GameLogger.LogError(
                     $"[UIManager] MainCanvas를 찾을 수 없습니다.\n\n" +
                     $"원인: {ex.Message}\n\n" +
                     $"해결 방법:\n" +
@@ -239,15 +237,16 @@ namespace Common.UI
                     $"2. 또는 씬에 'MainCanvas' 이름의 GameObject를 배치하세요\n" +
                     $"3. MainCanvas 구조:\n" +
                     $"   MainCanvas (Canvas, CanvasScaler, GraphicRaycaster)\n" +
+                    $"   ├─ Dim (Image - 검은색 반투명)\n" +
                     $"   ├─ Background (GameObject with RectTransform)\n" +
                     $"   ├─ HUD (GameObject with RectTransform)\n" +
-                    $"   ├─ Overlay (GameObject with RectTransform)\n" +
-                    $"   ├─ PopUp (GameObject with RectTransform)\n" +
+                    $"   ├─ Popup (GameObject with RectTransform)\n" +
                     $"   ├─ System (GameObject with RectTransform)\n" +
                     $"   └─ Transition (GameObject with RectTransform)\n" +
                     $"   주의: 레이어들은 Canvas가 아닌 GameObject여야 합니다!\n\n" +
-                    $"Addressable 설정: Window > Asset Management > Addressables > Groups",
+                    $"Addressable 설정: Window > Asset Management > Addressables > Groups \n" +
                     ex);
+                throw;
             }
         }
     }

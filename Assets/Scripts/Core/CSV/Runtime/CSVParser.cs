@@ -4,9 +4,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using Core.Utilities;
+using Core.Addressable;
 
 /// <summary>
 /// CSV 파일 파싱 유틸리티 (개선 버전)
@@ -51,11 +50,11 @@ public static class CSVParser
     {
         string fullPath = $"{RootPath}/{fileName}.csv";
 
-        AsyncOperationHandle<TextAsset> handle = Addressables.LoadAssetAsync<TextAsset>(fullPath);
-
         try
         {
-            TextAsset csvFile = await handle.ToUniTask(cancellationToken: cancellationToken);
+            // AddressableLoader를 통한 로드
+            TextAsset csvFile = await AddressableLoader.Instance
+                .LoadAssetAsync<TextAsset>(fullPath, cancellationToken);
 
             if (csvFile == null)
             {
@@ -78,10 +77,8 @@ public static class CSVParser
         }
         finally
         {
-            if (handle.IsValid())
-            {
-                Addressables.Release(handle);
-            }
+            // 사용 완료 후 Release (참조 카운트 감소)
+            AddressableLoader.Instance.Release(fullPath);
         }
     }
 

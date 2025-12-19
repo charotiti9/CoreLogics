@@ -3,7 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.AddressableAssets;
+using Core.Addressable;
 
 namespace Common.UI
 {
@@ -144,11 +144,10 @@ namespace Common.UI
                 }
             }
 
-            // MainCanvas Addressable 핸들 해제
-            if (mainCanvasHandle.IsValid())
-            {
-                Addressables.ReleaseInstance(mainCanvasHandle);
-            }
+            // MainCanvas Addressable 해제
+            // AddressableLoader는 참조 카운팅을 사용하므로,
+            // Addressable에서 로드한 경우에만 참조 카운트가 감소합니다.
+            AddressableLoader.Instance.Release(MAIN_CANVAS_ADDRESS);
         }
     }
 }
