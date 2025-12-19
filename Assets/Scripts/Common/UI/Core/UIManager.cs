@@ -72,12 +72,11 @@ namespace Common.UI
         /// UI를 표시합니다.
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
-        /// <param name="layer">UI 레이어</param>
         /// <param name="data">초기화 데이터</param>
         /// <param name="useDim">Dim 사용 여부</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>생성된 UI 인스턴스</returns>
-        public async UniTask<T> ShowAsync<T>(UILayer layer, object data = null, bool useDim = false, CancellationToken ct = default) where T : UIBase
+        public async UniTask<T> ShowAsync<T>(object data = null, bool useDim = false, CancellationToken ct = default) where T : UIBase
         {
             await WaitForInitializeAsync(ct);
 
@@ -104,8 +103,11 @@ namespace Common.UI
                     return null;
                 }
 
+                // UI.Layer를 사용하여 Canvas Layer 결정
+                UILayer targetLayer = ui.Layer;
+
                 // UI를 올바른 Canvas Layer로 이동
-                Transform canvasLayer = uiCanvas.GetCanvasTransform(layer);
+                Transform canvasLayer = uiCanvas.GetCanvasTransform(targetLayer);
                 ui.transform.SetParent(canvasLayer, false);
 
                 // 활성 UI로 등록
@@ -114,14 +116,14 @@ namespace Common.UI
                 // Dim 표시 (UI Stack 지원)
                 if (useDim)
                 {
-                    await dimController.ShowDimAsync(ui, layer, 0.7f, ct);
+                    await dimController.ShowDimAsync(ui, targetLayer, 0.7f, ct);
                 }
 
                 // UI 표시
                 await ui.ShowInternalAsync(data, ct);
 
                 // 스택에 추가 (PopUp 레이어만)
-                if (layer == UILayer.PopUp)
+                if (targetLayer == UILayer.PopUp)
                 {
                     uiStack.Push(ui);
                 }
@@ -242,13 +244,11 @@ namespace Common.UI
         /// </summary>
         /// <typeparam name="TUI">UI 타입</typeparam>
         /// <typeparam name="TData">UI 데이터 타입</typeparam>
-        /// <param name="layer">UI 레이어</param>
         /// <param name="data">초기화 데이터</param>
         /// <param name="useDim">Dim 사용 여부</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>생성된 UI 인스턴스</returns>
         public async UniTask<TUI> ShowAsync<TUI, TData>(
-            UILayer layer,
             TData data = null,
             bool useDim = false,
             CancellationToken ct = default
@@ -256,7 +256,7 @@ namespace Common.UI
           where TData : class
         {
             // object 버전 호출 (내부적으로 같은 로직 사용)
-            return await ShowAsync<TUI>(layer, data, useDim, ct);
+            return await ShowAsync<TUI>(data, useDim, ct);
         }
 
         /// <summary>

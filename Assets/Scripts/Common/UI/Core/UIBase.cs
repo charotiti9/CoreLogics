@@ -222,13 +222,12 @@ namespace Common.UI
         /// 각 UI 클래스에서 이 메서드를 사용하여 편리한 static Show 메서드를 만들 수 있습니다.
         /// </summary>
         protected static async UniTask<T> ShowUI<T>(
-            UILayer layer,
             object data = null,
             bool useDim = false,
             CancellationToken ct = default
         ) where T : UIBase
         {
-            return await UIManager.Instance.ShowAsync<T>(layer, data, useDim, ct);
+            return await UIManager.Instance.ShowAsync<T>(data, useDim, ct);
         }
 
         /// <summary>
@@ -345,14 +344,13 @@ namespace Common.UI
         /// Static Helper: UI를 표시합니다. (제네릭 버전)
         /// </summary>
         protected static async UniTask<TUI> ShowUI<TUI, TUIData>(
-            UILayer layer,
             TUIData data = null,
             bool useDim = false,
             CancellationToken ct = default
         ) where TUI : UIBase<TUIData>
           where TUIData : class
         {
-            return await UIManager.Instance.ShowAsync<TUI, TUIData>(layer, data, useDim, ct);
+            return await UIManager.Instance.ShowAsync<TUI, TUIData>(data, useDim, ct);
         }
 
         /// <summary>
