@@ -1,4 +1,4 @@
-ColumnName,Type,Description,Reference
+﻿ColumnName,Type,Description,Reference
 Key,string,고유 키,
 Korean,string,한국어 텍스트,
 English,string,영어 텍스트,
