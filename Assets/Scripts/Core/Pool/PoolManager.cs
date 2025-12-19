@@ -335,8 +335,10 @@ namespace Core.Pool
             // DontDestroyOnLoad 옵션 가져오기
             bool dontDestroyOnLoad = AttributeCache<T>.DontDestroyOnLoad;
 
-            // 새로 생성
-            ObjectPool<Component> newPool = ObjectPool<Component>.CreateForAddressable(dontDestroyOnLoad: dontDestroyOnLoad);
+            // 새로 생성 (타입 이름을 poolName으로 전달)
+            ObjectPool<Component> newPool = ObjectPool<Component>.CreateForAddressable(
+                dontDestroyOnLoad: dontDestroyOnLoad,
+                poolName: type.Name);
             pools[type] = newPool;
 
             Log($"[PoolManager] ObjectPool 생성: {type.Name} (DontDestroyOnLoad: {dontDestroyOnLoad})");

@@ -4,7 +4,6 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.AddressableAssets;
-using Core.Pool;
 
 namespace Common.UI
 {
@@ -71,25 +70,27 @@ namespace Common.UI
 
         /// <summary>
         /// 씬 로드 시 호출됩니다.
+        /// DestroyOnSceneChange == true인 UI를 Destroy합니다.
         /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             // null 참조 정리 (먼저 수행)
             CleanupNullReferences();
 
-            // DestroyOnSceneChange가 true인 UI만 제거
-            List<UIBase> uisToRemove = new List<UIBase>();
-            foreach (var ui in activeUIs.Values)
+            // DestroyOnSceneChange가 true인 UI만 Destroy
+            List<UIBase> uisToDestroy = new List<UIBase>();
+            foreach (var ui in spawnedUIs.Values)
             {
                 if (ui != null && ui.DestroyOnSceneChange)
                 {
-                    uisToRemove.Add(ui);
+                    uisToDestroy.Add(ui);
                 }
             }
 
-            foreach (var ui in uisToRemove)
+            foreach (var ui in uisToDestroy)
             {
-                HideUIAsync(ui, true, CancellationToken.None).Forget();
+                // Hide가 아닌 Destroy 호출
+                DestroyUI(ui);
             }
         }
 
@@ -133,7 +134,17 @@ namespace Common.UI
             // 스택 정리
             uiStack?.Clear();
 
-            // Addressable 핸들 해제
+            // 모든 Spawned UI Destroy 및 Addressable 핸들 해제
+            List<UIBase> uisToDestroy = new List<UIBase>(spawnedUIs.Values);
+            foreach (var ui in uisToDestroy)
+            {
+                if (ui != null)
+                {
+                    DestroyUI(ui);
+                }
+            }
+
+            // MainCanvas Addressable 핸들 해제
             if (mainCanvasHandle.IsValid())
             {
                 Addressables.ReleaseInstance(mainCanvasHandle);

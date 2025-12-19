@@ -62,64 +62,110 @@ namespace Common.UI
         private UIDimController dimController;
         private UIStack uiStack;
 
-        // 활성화된 UI 관리 (타입별)
+        // 생성된 UI 관리 (Spawned, 타입별)
+        private readonly Dictionary<Type, UIBase> spawnedUIs = new Dictionary<Type, UIBase>();
+
+        // 활성화된 UI 관리 (Showing, 타입별)
         private readonly Dictionary<Type, UIBase> activeUIs = new Dictionary<Type, UIBase>();
+
+        // Addressable 핸들 관리
+        private readonly Dictionary<Type, AsyncOperationHandle<GameObject>> uiHandles = new Dictionary<Type, AsyncOperationHandle<GameObject>>();
 
         // 초기화 완료 여부
         private bool isInitialized = false;
 
         /// <summary>
-        /// UI를 표시합니다.
+        /// UI 인스턴스를 생성합니다 (Addressable 로드 + Instantiate).
+        /// Spawn된 UI는 메모리에 유지되며, Show/Hide로 표시/숨김을 제어합니다.
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
-        /// <param name="data">초기화 데이터</param>
-        /// <param name="useDim">Dim 사용 여부</param>
         /// <param name="ct">CancellationToken</param>
         /// <returns>생성된 UI 인스턴스</returns>
-        public async UniTask<T> ShowAsync<T>(object data = null, bool useDim = false, CancellationToken ct = default) where T : UIBase
+        public async UniTask<T> SpawnAsync<T>(CancellationToken ct = default) where T : UIBase
         {
             await WaitForInitializeAsync(ct);
 
             Type type = typeof(T);
 
-            // 이미 표시 중인 UI가 있으면 반환
-            if (activeUIs.TryGetValue(type, out UIBase existingUI) && existingUI != null)
+            // 이미 Spawn된 경우 기존 인스턴스 반환
+            if (spawnedUIs.TryGetValue(type, out UIBase existingUI) && existingUI != null)
+            {
+                GameLogger.LogWarning($"UI {type.Name}가 이미 Spawn되어 있습니다.");
+                return existingUI as T;
+            }
+
+            // SpawnUIAsync 호출 (내부 구현은 UIManager.Internal.cs에 있음)
+            return await SpawnUIAsync<T>(ct);
+        }
+
+        /// <summary>
+        /// UI 인스턴스를 파괴합니다 (GameObject.Destroy + Addressable 해제).
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        public void Destroy<T>() where T : UIBase
+        {
+            Type type = typeof(T);
+
+            if (!spawnedUIs.TryGetValue(type, out UIBase ui) || ui == null)
+            {
+                GameLogger.LogWarning($"UI {type.Name}가 Spawn되지 않았습니다.");
+                return;
+            }
+
+            // 표시 중이면 먼저 Hide
+            if (activeUIs.ContainsKey(type))
+            {
+                Hide<T>(immediate: true);
+            }
+
+            // Destroy 처리 (내부 구현은 UIManager.Internal.cs에 있음)
+            DestroyUI(ui);
+        }
+
+        /// <summary>
+        /// UI를 표시합니다 (이미 Spawn된 UI를 SetActive(true)).
+        /// UIBase.UseDim 프로퍼티에 따라 자동으로 Dim 처리합니다.
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        /// <param name="data">UI 데이터</param>
+        /// <param name="ct">CancellationToken</param>
+        /// <returns>UI 인스턴스</returns>
+        public async UniTask<T> ShowAsync<T>(object data = null, CancellationToken ct = default) where T : UIBase
+        {
+            await WaitForInitializeAsync(ct);
+
+            Type type = typeof(T);
+
+            // Spawn되지 않은 경우 에러
+            if (!spawnedUIs.TryGetValue(type, out UIBase ui) || ui == null)
+            {
+                GameLogger.LogError($"UI {type.Name}가 Spawn되지 않았습니다. 먼저 SpawnAsync()를 호출하세요.");
+                return null;
+            }
+
+            // 이미 표시 중인 경우 반환
+            if (activeUIs.ContainsKey(type))
             {
                 GameLogger.LogWarning($"UI {type.Name}가 이미 보여지고 있습니다.");
-                return existingUI as T;
+                return ui as T;
             }
 
             try
             {
-                // 입력 차단
                 UIInputBlocker.Instance.Block();
 
-                // PoolManager를 통해 UI 인스턴스 획득
-                T ui = await PoolManager.GetFromPool<T>(ct);
-
-                if (ui == null)
-                {
-                    GameLogger.LogError($"{type.Name} UI를 로드하는 데에 실패했습니다.");
-                    return null;
-                }
-
-                // UI.Layer를 사용하여 Canvas Layer 결정
                 UILayer targetLayer = ui.Layer;
-
-                // UI를 올바른 Canvas Layer로 이동
-                Transform canvasLayer = uiCanvas.GetCanvasTransform(targetLayer);
-                ui.transform.SetParent(canvasLayer, false);
 
                 // 활성 UI로 등록
                 activeUIs[type] = ui;
 
-                // Dim 표시 (UI Stack 지원)
-                if (useDim)
+                // Dim 표시 (UIBase.UseDim 프로퍼티 사용)
+                if (ui.UseDim)
                 {
                     await dimController.ShowDimAsync(ui, targetLayer, 0.7f, ct);
                 }
 
-                // UI 표시
+                // UI 표시 (SetActive + 애니메이션)
                 await ui.ShowInternalAsync(data, ct);
 
                 // 스택에 추가 (PopUp 레이어만)
@@ -128,7 +174,7 @@ namespace Common.UI
                     uiStack.Push(ui);
                 }
 
-                return ui;
+                return ui as T;
             }
             catch (Exception ex)
             {
@@ -137,7 +183,6 @@ namespace Common.UI
             }
             finally
             {
-                // 입력 차단 해제
                 UIInputBlocker.Instance.Unblock();
             }
         }
@@ -182,11 +227,34 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// 현재 표시 중인 UI를 가져옵니다.
+        /// Spawn된 UI를 가져옵니다 (숨겨져 있어도 반환).
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
         /// <returns>UI 인스턴스 (없으면 null)</returns>
-        public T Get<T>() where T : UIBase
+        public T GetSpawned<T>() where T : UIBase
+        {
+            Type type = typeof(T);
+
+            if (spawnedUIs.TryGetValue(type, out UIBase ui))
+            {
+                if (ui == null)
+                {
+                    spawnedUIs.Remove(type);
+                    GameLogger.LogWarning($"[UIManager] {type.Name}이(가) Dictionary에 null로 남아있어 제거했습니다.");
+                    return null;
+                }
+                return ui as T;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 표시 중인 UI를 가져옵니다.
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        /// <returns>UI 인스턴스 (없으면 null)</returns>
+        public T GetShowing<T>() where T : UIBase
         {
             Type type = typeof(T);
 
@@ -206,13 +274,25 @@ namespace Common.UI
         }
 
         /// <summary>
+        /// UI가 Spawn되어 있는지 확인합니다.
+        /// </summary>
+        /// <typeparam name="T">UI 타입</typeparam>
+        /// <returns>Spawn되어 있으면 true</returns>
+        public bool IsSpawned<T>() where T : UIBase
+        {
+            Type type = typeof(T);
+            return spawnedUIs.ContainsKey(type) && spawnedUIs[type] != null;
+        }
+
+        /// <summary>
         /// UI가 표시 중인지 확인합니다.
         /// </summary>
         /// <typeparam name="T">UI 타입</typeparam>
         /// <returns>표시 중이면 true</returns>
         public bool IsShowing<T>() where T : UIBase
         {
-            return activeUIs.ContainsKey(typeof(T));
+            Type type = typeof(T);
+            return activeUIs.ContainsKey(type) && activeUIs[type] != null;
         }
 
         /// <summary>
@@ -244,19 +324,17 @@ namespace Common.UI
         /// </summary>
         /// <typeparam name="TUI">UI 타입</typeparam>
         /// <typeparam name="TData">UI 데이터 타입</typeparam>
-        /// <param name="data">초기화 데이터</param>
-        /// <param name="useDim">Dim 사용 여부</param>
+        /// <param name="data">UI 데이터</param>
         /// <param name="ct">CancellationToken</param>
-        /// <returns>생성된 UI 인스턴스</returns>
+        /// <returns>UI 인스턴스</returns>
         public async UniTask<TUI> ShowAsync<TUI, TData>(
             TData data = null,
-            bool useDim = false,
             CancellationToken ct = default
         ) where TUI : UIBase<TData>
           where TData : class
         {
             // object 버전 호출 (내부적으로 같은 로직 사용)
-            return await ShowAsync<TUI>(data, useDim, ct);
+            return await ShowAsync<TUI>(data, ct);
         }
 
         /// <summary>
@@ -274,17 +352,29 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// 현재 표시 중인 UI를 가져옵니다. (제네릭 버전)
+        /// Spawn된 UI를 가져옵니다. (제네릭 버전)
         /// </summary>
         /// <typeparam name="TUI">UI 타입</typeparam>
         /// <typeparam name="TData">UI 데이터 타입</typeparam>
         /// <returns>UI 인스턴스 (없으면 null)</returns>
-        public TUI Get<TUI, TData>()
+        public TUI GetSpawned<TUI, TData>()
             where TUI : UIBase<TData>
             where TData : class
         {
-            // object 버전 호출
-            return Get<TUI>();
+            return GetSpawned<TUI>();
+        }
+
+        /// <summary>
+        /// 표시 중인 UI를 가져옵니다. (제네릭 버전)
+        /// </summary>
+        /// <typeparam name="TUI">UI 타입</typeparam>
+        /// <typeparam name="TData">UI 데이터 타입</typeparam>
+        /// <returns>UI 인스턴스 (없으면 null)</returns>
+        public TUI GetShowing<TUI, TData>()
+            where TUI : UIBase<TData>
+            where TData : class
+        {
+            return GetShowing<TUI>();
         }
 
         #endregion

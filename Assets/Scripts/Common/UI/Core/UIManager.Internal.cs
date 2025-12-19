@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
-using Core.Pool;
 using Core.Utilities;
 
 namespace Common.UI
@@ -18,7 +19,91 @@ namespace Common.UI
     public partial class UIManager
     {
         /// <summary>
+        /// UIAddress Attribute에서 주소 가져오기
+        /// </summary>
+        private string GetUIAddress(Type uiType)
+        {
+            var attribute = uiType.GetCustomAttribute<UIAddressAttribute>();
+            if (attribute == null)
+            {
+                throw new InvalidOperationException(
+                    $"[UIManager] {uiType.Name}에 UIAddress Attribute가 없습니다.\n" +
+                    $"예시: [UIAddress(\"Assets/Scripts/Common/UI/MyUI.prefab\")]");
+            }
+            return attribute.Address;
+        }
+
+        /// <summary>
+        /// UI 인스턴스를 생성합니다 (내부 구현).
+        /// </summary>
+        private async UniTask<T> SpawnUIAsync<T>(CancellationToken ct) where T : UIBase
+        {
+            Type type = typeof(T);
+
+            // UIAddress Attribute에서 주소 가져오기
+            string address = GetUIAddress(type);
+
+            // Addressable 로드 및 Instantiate
+            var handle = Addressables.InstantiateAsync(address);
+            GameObject uiObj = await handle.ToUniTask(cancellationToken: ct);
+
+            if (uiObj == null)
+            {
+                GameLogger.LogError($"{type.Name} UI를 로드하는 데에 실패했습니다.");
+                return null;
+            }
+
+            T ui = uiObj.GetComponent<T>();
+            if (ui == null)
+            {
+                GameLogger.LogError($"{type.Name} 컴포넌트를 찾을 수 없습니다.");
+                Addressables.ReleaseInstance(handle);
+                return null;
+            }
+
+            // Canvas Layer로 이동
+            UILayer targetLayer = ui.Layer;
+            Transform canvasLayer = uiCanvas.GetCanvasTransform(targetLayer);
+            ui.transform.SetParent(canvasLayer, false);
+
+            // 초기 상태: 비활성화
+            uiObj.SetActive(false);
+
+            // Spawn 처리
+            ui.SpawnInternal();
+            ui.OnSpawn();
+
+            // Dictionary 등록
+            spawnedUIs[type] = ui;
+            uiHandles[type] = handle;
+
+            return ui;
+        }
+
+        /// <summary>
+        /// UI 인스턴스를 파괴합니다 (내부 구현).
+        /// </summary>
+        private void DestroyUI(UIBase ui)
+        {
+            Type type = ui.GetType();
+
+            // 정리 작업
+            ui.OnBeforeDestroy();
+            ui.DestroyInternal();
+
+            // Dictionary에서 제거
+            spawnedUIs.Remove(type);
+
+            // Addressable 해제
+            if (uiHandles.TryGetValue(type, out var handle) && handle.IsValid())
+            {
+                Addressables.ReleaseInstance(handle);
+                uiHandles.Remove(type);
+            }
+        }
+        /// <summary>
         /// UI를 숨깁니다. (내부 비동기 처리)
+        /// UIBase.UseDim 프로퍼티에 따라 자동으로 Dim 처리합니다.
         /// </summary>
         private async UniTaskVoid HideUIAsync(UIBase ui, bool immediate, CancellationToken ct)
         {
@@ -32,23 +117,26 @@ namespace Common.UI
                 // 스택에서 제거
                 uiStack.Remove(ui);
 
-                // UI 숨김
+                // UI 숨김 (SetActive(false) + 애니메이션)
                 await ui.HideInternalAsync(immediate, ct);
 
-                // 활성 UI에서 제거
+                // 활성 UI에서 제거 (spawnedUIs에는 남아있음!)
                 activeUIs.Remove(type);
 
-                // 풀로 반환 (PoolManager 사용)
-                PoolManager.ReturnToPool(ui);
+                // *** 풀로 반환하지 않음! ***
+                // 기존: PoolManager.ReturnToPool(ui);  <- 제거!
 
-                // Dim 숨김 (UI Stack 지원)
-                if (immediate)
+                // Dim 숨김 (UIBase.UseDim 프로퍼티 사용)
+                if (ui.UseDim)
                 {
-                    dimController.ClearDim(layer);
-                }
-                else
-                {
-                    await dimController.HideDimAsync(ui, layer, ct);
+                    if (immediate)
+                    {
+                        dimController.ClearDim(layer);
+                    }
+                    else
+                    {
+                        await dimController.HideDimAsync(ui, layer, ct);
+                    }
                 }
             }
             finally
@@ -73,27 +161,49 @@ namespace Common.UI
         }
 
         /// <summary>
-        /// activeUIs Dictionary에서 null 참조를 정리합니다.
+        /// spawnedUIs와 activeUIs Dictionary에서 null 참조를 정리합니다.
         /// UI가 UIManager를 거치지 않고 직접 파괴된 경우 호출됩니다.
         /// </summary>
         private void CleanupNullReferences()
         {
-            var keysToRemove = new List<Type>();
+            var activeKeysToRemove = new List<Type>();
             foreach (var pair in activeUIs)
             {
                 if (pair.Value == null)
                 {
-                    keysToRemove.Add(pair.Key);
+                    activeKeysToRemove.Add(pair.Key);
                 }
             }
 
-            if (keysToRemove.Count > 0)
+            var spawnedKeysToRemove = new List<Type>();
+            foreach (var pair in spawnedUIs)
             {
-                GameLogger.LogWarning($"[UIManager] {keysToRemove.Count}개의 null 참조를 정리합니다.");
+                if (pair.Value == null)
+                {
+                    spawnedKeysToRemove.Add(pair.Key);
+                }
+            }
 
-                foreach (var key in keysToRemove)
+            int totalCount = activeKeysToRemove.Count + spawnedKeysToRemove.Count;
+            if (totalCount > 0)
+            {
+                GameLogger.LogWarning($"[UIManager] {totalCount}개의 null 참조를 정리합니다.");
+
+                foreach (var key in activeKeysToRemove)
                 {
                     activeUIs.Remove(key);
+                }
+
+                foreach (var key in spawnedKeysToRemove)
+                {
+                    spawnedUIs.Remove(key);
+
+                    // Addressable 핸들도 해제
+                    if (uiHandles.TryGetValue(key, out var handle) && handle.IsValid())
+                    {
+                        Addressables.ReleaseInstance(handle);
+                        uiHandles.Remove(key);
+                    }
                 }
             }
         }

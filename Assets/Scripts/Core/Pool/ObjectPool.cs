@@ -45,9 +45,10 @@ namespace Core.Pool
             Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
             Action<string> prefabReleaser,
             int defaultMaxSize,
-            bool dontDestroyOnLoad)
+            bool dontDestroyOnLoad,
+            string poolName = null)
         {
-            this.poolName = $"ObjectPool<{typeof(T).Name}>";
+            this.poolName = poolName ?? $"ObjectPool<{typeof(T).Name}>";
             this.prefabLoader = prefabLoader;
 
             // 참조 카운터 초기화 (프리팹별 인스턴스 개수 추적)
@@ -86,14 +87,16 @@ namespace Core.Pool
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
+        /// <param name="poolName">풀 이름 (기본값: null이면 자동 생성)</param>
         /// <returns>Addressable 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false)
+        public static ObjectPool<T> CreateForAddressable(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false, string poolName = null)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => Core.Addressable.AddressableLoader.Instance.LoadAssetAsync<GameObject>(address, ct),
                 prefabReleaser: (address) => Core.Addressable.AddressableLoader.Instance.Release(address),
                 defaultMaxSize: defaultMaxSize,
-                dontDestroyOnLoad: dontDestroyOnLoad
+                dontDestroyOnLoad: dontDestroyOnLoad,
+                poolName: poolName
             );
         }
 
@@ -103,14 +106,16 @@ namespace Core.Pool
         /// </summary>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
+        /// <param name="poolName">풀 이름 (기본값: null이면 자동 생성)</param>
         /// <returns>Resources 전용 ObjectPool</returns>
-        public static ObjectPool<T> CreateForResources(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false)
+        public static ObjectPool<T> CreateForResources(int defaultMaxSize = DEFAULT_MAX_POOL_SIZE, bool dontDestroyOnLoad = false, string poolName = null)
         {
             return new ObjectPool<T>(
                 prefabLoader: (address, ct) => UniTask.FromResult(Resources.Load<GameObject>(address)),
                 prefabReleaser: null, // Resources는 명시적 해제 불필요
                 defaultMaxSize: defaultMaxSize,
-                dontDestroyOnLoad: dontDestroyOnLoad
+                dontDestroyOnLoad: dontDestroyOnLoad,
+                poolName: poolName
             );
         }
 
@@ -122,14 +127,16 @@ namespace Core.Pool
         /// <param name="prefabReleaser">프리팹 해제 콜백 (옵션)</param>
         /// <param name="defaultMaxSize">기본 최대 풀 크기</param>
         /// <param name="dontDestroyOnLoad">씬 전환 시에도 유지할지 여부 (기본값: false)</param>
+        /// <param name="poolName">풀 이름 (기본값: null이면 자동 생성)</param>
         /// <returns>커스텀 ObjectPool</returns>
         public static ObjectPool<T> CreateCustom(
             Func<string, CancellationToken, UniTask<GameObject>> prefabLoader,
             Action<string> prefabReleaser = null,
             int defaultMaxSize = DEFAULT_MAX_POOL_SIZE,
-            bool dontDestroyOnLoad = false)
+            bool dontDestroyOnLoad = false,
+            string poolName = null)
         {
-            return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize, dontDestroyOnLoad);
+            return new ObjectPool<T>(prefabLoader, prefabReleaser, defaultMaxSize, dontDestroyOnLoad, poolName);
         }
 
         #endregion
