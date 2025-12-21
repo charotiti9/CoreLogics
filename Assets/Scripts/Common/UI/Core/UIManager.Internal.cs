@@ -25,20 +25,6 @@ namespace Common.UI
             var attribute = uiType.GetCustomAttribute<UIAttribute>();
             if (attribute == null)
             {
-                // 하위 호환성: UIAddressAttribute도 확인
-                var oldAttribute = uiType.GetCustomAttribute<UIAddressAttribute>();
-                if (oldAttribute != null)
-                {
-                    GameLogger.LogWarning(
-                        $"[UIManager] {uiType.Name}에서 UIAddressAttribute를 사용하고 있습니다.\n" +
-                        $"UIAttribute로 변경해 주세요: [UIAttribute(\"{oldAttribute.Address}\", UILayer.PopUp)]");
-                    // UIAddressAttribute는 Layer 정보가 없으므로 에러 발생
-                    throw new InvalidOperationException(
-                        $"[UIManager] {uiType.Name}에서 UIAddressAttribute는 더 이상 지원되지 않습니다.\n" +
-                        $"UIAttribute로 변경해 주세요.\n" +
-                        $"예시: [UIAttribute(\"{oldAttribute.Address}\", UILayer.PopUp, useDim: true)]");
-                }
-
                 throw new InvalidOperationException(
                     $"[UIManager] {uiType.Name}에 UIAttribute가 없습니다.\n" +
                     $"예시: [UIAttribute(\"UI/MyUI\", UILayer.PopUp, useDim: true)]");

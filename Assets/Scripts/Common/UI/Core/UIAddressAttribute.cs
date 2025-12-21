@@ -48,20 +48,4 @@ namespace Common.UI
             DestroyOnSceneChange = destroyOnSceneChange;
         }
     }
-
-    /// <summary>
-    /// [Obsolete] 하위 호환성을 위한 Attribute
-    /// UIAttribute를 사용하세요.
-    /// </summary>
-    [Obsolete("UIAddressAttribute는 더 이상 사용되지 않습니다. UIAttribute를 사용하세요.")]
-    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-    public class UIAddressAttribute : Attribute
-    {
-        public string Address { get; }
-
-        public UIAddressAttribute(string address)
-        {
-            Address = address;
-        }
-    }
 }
