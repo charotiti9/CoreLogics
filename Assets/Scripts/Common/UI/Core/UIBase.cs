@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -20,24 +21,60 @@ namespace Common.UI
         // 애니메이션 중첩 방지용 CancellationTokenSource
         private CancellationTokenSource animationCts;
 
+        // UIAttribute 캐싱 (Reflection 호출 최소화)
+        private UIAttribute cachedAttribute;
+
         /// <summary>
         /// UI가 속한 레이어
+        /// UIAttribute에서 자동으로 읽어옵니다.
         /// </summary>
-        public abstract UILayer Layer { get; }
+        public UILayer Layer
+        {
+            get
+            {
+                if (cachedAttribute == null)
+                {
+                    CacheAttribute();
+                }
+                return cachedAttribute.Layer;
+            }
+        }
 
         /// <summary>
         /// Dim 사용 여부
+        /// UIAttribute에서 자동으로 읽어옵니다.
         /// true: Show 시 자동으로 Dim 표시, Hide 시 자동으로 Dim 숨김
         /// false: Dim 미사용 (기본값)
         /// </summary>
-        public virtual bool UseDim => false;
+        public bool UseDim
+        {
+            get
+            {
+                if (cachedAttribute == null)
+                {
+                    CacheAttribute();
+                }
+                return cachedAttribute.UseDim;
+            }
+        }
 
         /// <summary>
         /// 씬 변경 시 자동으로 제거할지 여부
+        /// UIAttribute에서 자동으로 읽어옵니다.
         /// true: 씬 변경 시 자동 제거 (기본값)
         /// false: 씬 전환 후에도 유지 (예: HUD, 로딩 UI)
         /// </summary>
-        public virtual bool DestroyOnSceneChange => true;
+        public bool DestroyOnSceneChange
+        {
+            get
+            {
+                if (cachedAttribute == null)
+                {
+                    CacheAttribute();
+                }
+                return cachedAttribute.DestroyOnSceneChange;
+            }
+        }
 
         /// <summary>
         /// Spawn 여부 (인스턴스가 메모리에 생성되어 있는지)
@@ -213,11 +250,32 @@ namespace Common.UI
         }
 
         /// <summary>
+        /// UIAttribute를 캐싱합니다 (Reflection 호출 최소화)
+        /// </summary>
+        private void CacheAttribute()
+        {
+            var attribute = GetType().GetCustomAttribute<UIAttribute>();
+            if (attribute == null)
+            {
+                throw new InvalidOperationException(
+                    $"[UIBase] {GetType().Name}에 UIAttribute가 없습니다.\n" +
+                    $"예시: [UIAttribute(\"UI/MyUI\", UILayer.PopUp, useDim: true)]");
+            }
+            cachedAttribute = attribute;
+        }
+
+        /// <summary>
         /// Spawn 시 내부적으로 호출됩니다. (UIManager 전용)
         /// </summary>
         internal void SpawnInternal()
         {
             IsSpawned = true;
+
+            // UIAttribute 캐싱 (최초 1회만)
+            if (cachedAttribute == null)
+            {
+                CacheAttribute();
+            }
 
             // 생명주기 CancellationTokenSource 생성
             lifecycleCts = new CancellationTokenSource();
