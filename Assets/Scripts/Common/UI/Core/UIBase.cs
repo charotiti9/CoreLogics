@@ -319,11 +319,34 @@ namespace Common.UI
         private void OnDestroy()
         {
             // 진행 중인 모든 비동기 작업 취소
-            lifecycleCts?.Cancel();
-            lifecycleCts?.Dispose();
+            // CancellationTokenSource가 이미 Dispose된 경우 예외가 발생할 수 있으므로 안전하게 처리
+            try
+            {
+                lifecycleCts?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 이미 Dispose된 경우 무시
+            }
+            finally
+            {
+                lifecycleCts?.Dispose();
+                lifecycleCts = null;
+            }
 
-            animationCts?.Cancel();
-            animationCts?.Dispose();
+            try
+            {
+                animationCts?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 이미 Dispose된 경우 무시
+            }
+            finally
+            {
+                animationCts?.Dispose();
+                animationCts = null;
+            }
         }
     }
 

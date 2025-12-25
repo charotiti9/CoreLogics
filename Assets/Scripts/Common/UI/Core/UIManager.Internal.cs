@@ -106,7 +106,10 @@ namespace Common.UI
             // Dictionary에서 제거
             spawnedUIs.Remove(type);
 
-            // AddressableLoader를 통한 해제
+            // GameObject 파괴
+            GameObject.Destroy(ui.gameObject);
+
+            // AddressableLoader를 통한 해제 (Prefab 에셋 해제)
             AddressableLoader.Instance.Release(address);
         }
         /// <summary>
