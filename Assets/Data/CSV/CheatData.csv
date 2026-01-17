@@ -1,0 +1,8 @@
+﻿ID,Description,Parameters
+AddGold,골드를 추가합니다,amount:int
+AddItem,아이템을 추가합니다,itemId:string|count:int
+SetLevel,레벨을 설정합니다,level:int
+GodMode,무적 모드를 토글합니다,
+ClearStage,현재 스테이지를 클리어합니다,
+Teleport,지정 좌표로 이동합니다,x:float|y:float|z:float
+SpawnEnemy,적을 소환합니다,enemyId:string|count:int|level:int

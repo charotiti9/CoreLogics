@@ -1,0 +1,4 @@
+﻿ColumnName,Type,IsRequired,Description,Reference
+ID,string,TRUE,치트 명령어 ID (ICheat 구현 클래스명과 동일),
+Description,string,TRUE,치트 설명,
+Parameters,string,TRUE,매개변수 정의 (name:type|name:type|...),
