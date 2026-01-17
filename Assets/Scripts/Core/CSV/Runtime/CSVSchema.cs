@@ -9,6 +9,7 @@ public class CSVSchemaColumn
 {
     public string ColumnName;
     public string Type;
+    public bool IsRequired;
     public string Description;
     public string Reference;
 

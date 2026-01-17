@@ -30,6 +30,15 @@ public static class CSVCircularReferenceChecker
                 {
                     string refTable = column.ReferenceTableName;
 
+                    // 유효하지 않은 Reference 형식 검사
+                    if (string.IsNullOrEmpty(refTable))
+                    {
+                        Debug.LogError($"[CSVCircularReferenceChecker] 유효하지 않은 Reference 형식: " +
+                            $"테이블 '{schema.TableName}', 컬럼 '{column.ColumnName}', Reference '{column.Reference}'. " +
+                            $"올바른 형식: '테이블명.컬럼명'");
+                        continue;
+                    }
+
                     // 중복 제거
                     if (!references.Contains(refTable))
                     {

@@ -1,4 +1,4 @@
-﻿ColumnName,Type,Description,Reference
-Key,string,고유 키,
-Korean,string,한국어 텍스트,
-English,string,영어 텍스트,
+ColumnName,Type,IsRequired,Description,Reference
+Key,string,TRUE,고유 키,
+Korean,string,TRUE,한국어 텍스트,
+English,string,TRUE,영어 텍스트,

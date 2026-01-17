@@ -23,4 +23,5 @@ public class LocalizationData : ICSVData
     /// 영어 텍스트
     /// </summary>
     public string English;
+
 }

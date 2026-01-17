@@ -32,10 +32,20 @@ public static class CSVSchemaParser
             return new CSVSchema { TableName = tableName };
         }
 
+        // IsRequired가 TRUE인 컬럼만 필터링
+        List<CSVSchemaColumn> requiredColumns = new List<CSVSchemaColumn>(columns.Count);
+        for (int i = 0; i < columns.Count; i++)
+        {
+            if (columns[i].IsRequired)
+            {
+                requiredColumns.Add(columns[i]);
+            }
+        }
+
         return new CSVSchema
         {
             TableName = tableName,
-            Columns = columns
+            Columns = requiredColumns
         };
     }
 }

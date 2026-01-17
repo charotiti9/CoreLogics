@@ -212,6 +212,8 @@ public static class CSVCodeGenerator
 
     /// <summary>
     /// Schema CSV를 수동으로 파싱 (Editor 전용, 간단한 파싱)
+    /// 헤더 형식: ColumnName,Type,IsRequired,Description,Reference
+    /// IsRequired가 TRUE인 컬럼만 반환
     /// </summary>
     private static List<CSVSchemaColumn> ParseSchemaCSV(string filePath)
     {
@@ -238,15 +240,25 @@ public static class CSVCodeGenerator
 
             string[] values = line.Split(',');
 
-            if (values.Length < 4)
+            // 헤더 형식: ColumnName,Type,IsRequired,Description,Reference (5개)
+            if (values.Length < 5)
+                continue;
+
+            // IsRequired 파싱
+            string isRequiredStr = values[2].Trim().ToUpper();
+            bool isRequired = isRequiredStr == "TRUE" || isRequiredStr == "1";
+
+            // IsRequired가 FALSE인 컬럼은 제외
+            if (!isRequired)
                 continue;
 
             CSVSchemaColumn column = new CSVSchemaColumn
             {
                 ColumnName = values[0].Trim(),
                 Type = values[1].Trim(),
-                Description = values[2].Trim(),
-                Reference = values[3].Trim()
+                IsRequired = isRequired,
+                Description = values[3].Trim(),
+                Reference = values[4].Trim()
             };
 
             columns.Add(column);

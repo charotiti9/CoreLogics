@@ -25,6 +25,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 63859079497e26340905239c8130d289
+    m_Address: Assets/Data/CSV/Cheat.csv
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fae7be0a6088d3f43a1250935dadac19
+    m_Address: Assets/Data/CSV/Cheat_Schema.csv
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: e1713935dfe4d9d40a718d95b06d61e1, type: 2}
   m_SchemaSet:
