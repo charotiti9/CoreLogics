@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 중앙 입력 관리자 (수동 작성 부분)
@@ -29,6 +30,8 @@ public partial class InputManager : EagerMonoSingleton<InputManager>
         EnablePlayerInput();
     }
 
+
+
     #region Action Map 제어
 
     /// <summary>
@@ -36,6 +39,10 @@ public partial class InputManager : EagerMonoSingleton<InputManager>
     /// </summary>
     public void EnablePlayerInput()
     {
+        if(inputActions.Player.enabled)
+        {
+            return;
+        }
         inputActions.Player.Enable();
     }
 
@@ -44,6 +51,10 @@ public partial class InputManager : EagerMonoSingleton<InputManager>
     /// </summary>
     public void DisablePlayerInput()
     {
+        if (!inputActions.Player.enabled)
+        {
+            return;
+        }
         inputActions.Player.Disable();
     }
 
@@ -52,6 +63,10 @@ public partial class InputManager : EagerMonoSingleton<InputManager>
     /// </summary>
     public void EnableUIInput()
     {
+        if (inputActions.UI.enabled)
+        {
+            return;
+        }
         inputActions.UI.Enable();
     }
 
@@ -60,7 +75,35 @@ public partial class InputManager : EagerMonoSingleton<InputManager>
     /// </summary>
     public void DisableUIInput()
     {
+        if (!inputActions.UI.enabled)
+        {
+            return;
+        }
         inputActions.UI.Disable();
+    }
+
+    /// <summary>
+    /// UI 입력 활성화
+    /// </summary>
+    public void EnableCheatInput()
+    {
+        if (inputActions.Cheat.enabled)
+        {
+            return;
+        }
+        inputActions.Cheat.Enable();
+    }
+
+    /// <summary>
+    /// UI 입력 비활성화
+    /// </summary>
+    public void DisableCheatInput()
+    {
+        if (!inputActions.Cheat.enabled)
+        {
+            return;
+        }
+        inputActions.Cheat.Disable();
     }
 
     /// <summary>

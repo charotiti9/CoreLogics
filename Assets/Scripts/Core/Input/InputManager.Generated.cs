@@ -235,6 +235,85 @@ public partial class InputManager
 
     #endregion
 
+    #region Cheat Action Events
+
+    /// <summary>
+    /// Open 액션 Started 이벤트
+    /// </summary>
+    public event Action OnOpenStarted;
+
+    /// <summary>
+    /// Open 액션 Performed 이벤트
+    /// </summary>
+    public event Action OnOpenPerformed;
+
+    /// <summary>
+    /// Open 액션 Canceled 이벤트
+    /// </summary>
+    public event Action OnOpenCanceled;
+
+    /// <summary>
+    /// Close 액션 Started 이벤트
+    /// </summary>
+    public event Action OnCloseStarted;
+
+    /// <summary>
+    /// Close 액션 Performed 이벤트
+    /// </summary>
+    public event Action OnClosePerformed;
+
+    /// <summary>
+    /// Close 액션 Canceled 이벤트
+    /// </summary>
+    public event Action OnCloseCanceled;
+
+    /// <summary>
+    /// Up 액션 Started 이벤트
+    /// </summary>
+    public event Action OnUpStarted;
+
+    /// <summary>
+    /// Up 액션 Performed 이벤트
+    /// </summary>
+    public event Action OnUpPerformed;
+
+    /// <summary>
+    /// Up 액션 Canceled 이벤트
+    /// </summary>
+    public event Action OnUpCanceled;
+
+    /// <summary>
+    /// Down 액션 Started 이벤트
+    /// </summary>
+    public event Action OnDownStarted;
+
+    /// <summary>
+    /// Down 액션 Performed 이벤트
+    /// </summary>
+    public event Action OnDownPerformed;
+
+    /// <summary>
+    /// Down 액션 Canceled 이벤트
+    /// </summary>
+    public event Action OnDownCanceled;
+
+    /// <summary>
+    /// Enter 액션 Started 이벤트
+    /// </summary>
+    public event Action OnEnterStarted;
+
+    /// <summary>
+    /// Enter 액션 Performed 이벤트
+    /// </summary>
+    public event Action OnEnterPerformed;
+
+    /// <summary>
+    /// Enter 액션 Canceled 이벤트
+    /// </summary>
+    public event Action OnEnterCanceled;
+
+    #endregion
+
     #region Player Binding
 
     /// <summary>
@@ -345,6 +424,42 @@ public partial class InputManager
 
     #endregion
 
+    #region Cheat Binding
+
+    /// <summary>
+    /// Cheat 액션 바인딩
+    /// </summary>
+    private void BindCheatActions()
+    {
+        // Open
+        inputActions.Cheat.Open.started += ctx => OnOpenStarted?.Invoke();
+        inputActions.Cheat.Open.performed += ctx => OnOpenPerformed?.Invoke();
+        inputActions.Cheat.Open.canceled += ctx => OnOpenCanceled?.Invoke();
+
+        // Close
+        inputActions.Cheat.Close.started += ctx => OnCloseStarted?.Invoke();
+        inputActions.Cheat.Close.performed += ctx => OnClosePerformed?.Invoke();
+        inputActions.Cheat.Close.canceled += ctx => OnCloseCanceled?.Invoke();
+
+        // Up
+        inputActions.Cheat.Up.started += ctx => OnUpStarted?.Invoke();
+        inputActions.Cheat.Up.performed += ctx => OnUpPerformed?.Invoke();
+        inputActions.Cheat.Up.canceled += ctx => OnUpCanceled?.Invoke();
+
+        // Down
+        inputActions.Cheat.Down.started += ctx => OnDownStarted?.Invoke();
+        inputActions.Cheat.Down.performed += ctx => OnDownPerformed?.Invoke();
+        inputActions.Cheat.Down.canceled += ctx => OnDownCanceled?.Invoke();
+
+        // Enter
+        inputActions.Cheat.Enter.started += ctx => OnEnterStarted?.Invoke();
+        inputActions.Cheat.Enter.performed += ctx => OnEnterPerformed?.Invoke();
+        inputActions.Cheat.Enter.canceled += ctx => OnEnterCanceled?.Invoke();
+
+    }
+
+    #endregion
+
     /// <summary>
     /// 모든 액션 바인딩
     /// </summary>
@@ -352,6 +467,7 @@ public partial class InputManager
     {
         BindPlayerActions();
         BindUIActions();
+        BindCheatActions();
     }
 
     #region Player Get Methods
@@ -510,6 +626,50 @@ public partial class InputManager
     public Quaternion GetTrackedDeviceOrientationInput()
     {
         return inputActions.UI.TrackedDeviceOrientation.ReadValue<Quaternion>();
+    }
+
+    #endregion
+
+    #region Cheat Get Methods
+
+    /// <summary>
+    /// Open 버튼 눌림 상태 조회
+    /// </summary>
+    public bool IsOpenPressed()
+    {
+        return inputActions.Cheat.Open.IsPressed();
+    }
+
+    /// <summary>
+    /// Close 버튼 눌림 상태 조회
+    /// </summary>
+    public bool IsClosePressed()
+    {
+        return inputActions.Cheat.Close.IsPressed();
+    }
+
+    /// <summary>
+    /// Up 버튼 눌림 상태 조회
+    /// </summary>
+    public bool IsUpPressed()
+    {
+        return inputActions.Cheat.Up.IsPressed();
+    }
+
+    /// <summary>
+    /// Down 버튼 눌림 상태 조회
+    /// </summary>
+    public bool IsDownPressed()
+    {
+        return inputActions.Cheat.Down.IsPressed();
+    }
+
+    /// <summary>
+    /// Enter 버튼 눌림 상태 조회
+    /// </summary>
+    public bool IsEnterPressed()
+    {
+        return inputActions.Cheat.Enter.IsPressed();
     }
 
     #endregion

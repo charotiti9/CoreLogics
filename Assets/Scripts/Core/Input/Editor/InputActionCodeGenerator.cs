@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using System.IO;
@@ -157,6 +157,7 @@ public class InputActionCodeGenerator
         foreach (var action in map.actions)
         {
             string actionType = action.expectedControlType;
+            string type = action.type;
 
             if (actionType == "Vector2")
             {
@@ -167,7 +168,7 @@ public class InputActionCodeGenerator
                 sb.AppendLine($"    public event Action<Vector2> On{action.name};");
                 sb.AppendLine();
             }
-            else if (actionType == "Button")
+            else if (actionType == "Button" || type == "Button")
             {
                 // Button 타입 이벤트 (Started, Performed, Canceled)
                 sb.AppendLine($"    /// <summary>");
@@ -226,16 +227,16 @@ public class InputActionCodeGenerator
 
         foreach (var action in map.actions)
         {
-            string actionType = action.expectedControlType;
-
-            if (actionType == "Vector2")
+            string expectedType = action.expectedControlType;
+            string type = action.type;
+            if (expectedType == "Vector2")
             {
                 sb.AppendLine($"        // {action.name}");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.performed += ctx => On{action.name}?.Invoke(ctx.ReadValue<Vector2>());");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.canceled += ctx => On{action.name}?.Invoke(Vector2.zero);");
                 sb.AppendLine();
             }
-            else if (actionType == "Button")
+            else if (expectedType == "Button" || type == "Button")
             {
                 sb.AppendLine($"        // {action.name}");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.started += ctx => On{action.name}Started?.Invoke();");
@@ -243,19 +244,23 @@ public class InputActionCodeGenerator
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.canceled += ctx => On{action.name}Canceled?.Invoke();");
                 sb.AppendLine();
             }
-            else if (actionType == "Quaternion")
+            else if (expectedType == "Quaternion")
             {
                 sb.AppendLine($"        // {action.name}");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.performed += ctx => On{action.name}?.Invoke(ctx.ReadValue<Quaternion>());");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.canceled += ctx => On{action.name}?.Invoke(Quaternion.identity);");
                 sb.AppendLine();
             }
-            else if (actionType == "Vector3")
+            else if (expectedType == "Vector3")
             {
                 sb.AppendLine($"        // {action.name}");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.performed += ctx => On{action.name}?.Invoke(ctx.ReadValue<Vector3>());");
                 sb.AppendLine($"        inputActions.{map.name}.{action.name}.canceled += ctx => On{action.name}?.Invoke(Vector3.zero);");
                 sb.AppendLine();
+            }
+            else
+            {
+                Debug.LogError($"[InputManager] 코드 생성 중 오류 발생: {map.name}.{action.name}의 actionType이 [{expectedType}]입니다. 이 타입은 지원하지 않습니다. 생성 코드를 바꿔주세요.");
             }
         }
 
@@ -275,7 +280,7 @@ public class InputActionCodeGenerator
         foreach (var action in map.actions)
         {
             string actionType = action.expectedControlType;
-
+            string type = action.type;
             if (actionType == "Vector2")
             {
                 sb.AppendLine($"    /// <summary>");
@@ -287,7 +292,7 @@ public class InputActionCodeGenerator
                 sb.AppendLine($"    }}");
                 sb.AppendLine();
             }
-            else if (actionType == "Button")
+            else if (actionType == "Button" || type == "Button")
             {
                 sb.AppendLine($"    /// <summary>");
                 sb.AppendLine($"    /// {action.name} 버튼 눌림 상태 조회");

@@ -15,8 +15,18 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: ee39d4853b6a553468c0b01822f12c68
   m_SerializeEntries:
+  - m_GUID: 63859079497e26340905239c8130d289
+    m_Address: Assets/Data/CSV/CheatData.csv
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c7ab73a49c6de2a46a8d2a6bbfe51105
     m_Address: Assets/Data/Settings/LocalizationSettings.asset
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fae7be0a6088d3f43a1250935dadac19
+    m_Address: Assets/Data/CSV/CheatData_Schema.csv
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
