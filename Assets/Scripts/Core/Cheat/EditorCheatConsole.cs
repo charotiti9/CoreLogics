@@ -59,9 +59,8 @@ namespace Core.Cheat
         private bool shouldFocusInput = false;
         private const string INPUT_CONTROL_NAME = "CheatInput";
 
-        protected override void Initialize()
+        private void Start()
         {
-            base.Initialize();
             InputManager.Instance.EnableCheatInput();
         }
 
