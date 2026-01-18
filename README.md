@@ -4,18 +4,6 @@
 # 소개
 이 프로젝트는 [블로그](https://charotiti9.github.io/)에 연재된 Unity 공용 스크립트 제작기의 실제 구현 코드입니다.
 
-## 관련 블로그 포스트
-- https://charotiti9.github.io/devlog/Core-Script-01.html
-- https://charotiti9.github.io/devlog/Core-Script-02.html
-- https://charotiti9.github.io/devlog/Core-Script-03.html
-- https://charotiti9.github.io/devlog/Core-Script-04.html
-- https://charotiti9.github.io/devlog/Core-Script-05.html
-- https://charotiti9.github.io/devlog/Core-Script-06.html
-- https://charotiti9.github.io/devlog/Core-Script-07.html
-- https://charotiti9.github.io/devlog/Core-Script-08.html
-- https://charotiti9.github.io/devlog/Core-Script-09.html
-- https://charotiti9.github.io/devlog/Core-Script-10.html
-
 ---
 
 ##  🎯 Core Systems
@@ -27,6 +15,7 @@
   - Object Pool - High-performance object pooling with Addressable integration
   - State Machine - Generic state machine implementation for AI and game states
   - Singleton Pattern - Thread-safe singleton implementations (MonoBehaviour and POCO)
+  - Cheat System - Console cheat system using CSV
 
 ##  🎮 Common Features
   - Audio Manager - Multi-channel audio system (BGM, SFX, Voice) with fade effects and priority queue
@@ -50,6 +39,7 @@
     - GameFlowManager component  
     - UIManager component  
     - AudioManager component  
+	- EditorCheatConsole component
   5. See Assets/Scripts/README.md for detailed documentation
   
 ---
@@ -63,6 +53,7 @@
   - Object Pool - Addressable과 통합된 고성능 오브젝트 풀링
   - State Machine - AI 및 게임 상태를 위한 범용 상태 머신 구현
   - Singleton Pattern - 스레드 안전 싱글톤 구현 (MonoBehaviour 및 일반 클래스)
+  - Cheat System - CSV를 이용한 콘솔 치트 시스템 구현
 
 ##  🎮 일반 시스템
   - Audio Manager - 페이드 효과 및 우선순위 큐를 갖춘 멀티 채널 오디오 시스템 (BGM, SFX, Voice)
@@ -86,6 +77,7 @@
     - GameFlowManager 컴포넌트  
     - UIManager 컴포넌트  
     - AudioManager 컴포넌트  
+    - EditorCheatConsole 컴포넌트
   5. 자세한 문서는 Assets/Scripts/README.md 참조
 
 --- 
