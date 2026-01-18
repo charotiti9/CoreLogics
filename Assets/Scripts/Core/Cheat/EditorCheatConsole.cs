@@ -284,7 +284,12 @@ namespace Core.Cheat
                     break;
 
                 case KeyCode.UpArrow:
-                    if (suggestions.Count > 0)
+                    if (e.control)
+                    {
+                        // Ctrl+↑: 히스토리 탐색
+                        NavigateHistory(-1);
+                    }
+                    else if (suggestions.Count > 0)
                     {
                         // 자동완성 목록에서 위로 이동
                         selectedSuggestionIndex--;
@@ -293,16 +298,16 @@ namespace Core.Cheat
                             selectedSuggestionIndex = suggestions.Count - 1;
                         }
                     }
-                    else
-                    {
-                        // 히스토리 탐색
-                        NavigateHistory(-1);
-                    }
                     e.Use();
                     break;
 
                 case KeyCode.DownArrow:
-                    if (suggestions.Count > 0)
+                    if (e.control)
+                    {
+                        // Ctrl+↓: 히스토리 탐색
+                        NavigateHistory(1);
+                    }
+                    else if (suggestions.Count > 0)
                     {
                         // 자동완성 목록에서 아래로 이동
                         selectedSuggestionIndex++;
@@ -310,11 +315,6 @@ namespace Core.Cheat
                         {
                             selectedSuggestionIndex = 0;
                         }
-                    }
-                    else
-                    {
-                        // 히스토리 탐색
-                        NavigateHistory(1);
                     }
                     e.Use();
                     break;
