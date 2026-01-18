@@ -9,7 +9,7 @@ namespace Core.Cheat
     /// 치트 입력 UI (Editor 전용)
     /// [`] 키로 열고 닫습니다.
     /// </summary>
-    public class EditorCheatConsole : MonoBehaviour
+    public class EditorCheatConsole : EagerMonoSingleton<EditorCheatConsole>
     {
         // UI 표시 여부
         private bool isVisible = false;
@@ -59,8 +59,9 @@ namespace Core.Cheat
         private bool shouldFocusInput = false;
         private const string INPUT_CONTROL_NAME = "CheatInput";
 
-        private void Start()
+        protected override void Initialize()
         {
+            base.Initialize();
             InputManager.Instance.EnableCheatInput();
         }
 
