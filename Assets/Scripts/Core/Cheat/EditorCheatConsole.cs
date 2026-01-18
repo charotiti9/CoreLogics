@@ -9,7 +9,7 @@ namespace Core.Cheat
     /// 치트 입력 UI (Editor 전용)
     /// [`] 키로 열고 닫습니다.
     /// </summary>
-    public class CheatInputUI : MonoBehaviour
+    public class EditorCheatConsole : MonoBehaviour
     {
         // UI 표시 여부
         private bool isVisible = false;

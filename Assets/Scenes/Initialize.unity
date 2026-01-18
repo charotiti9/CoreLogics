@@ -616,7 +616,7 @@ GameObject:
   - component: {fileID: 1737338073}
   - component: {fileID: 1737338072}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: EditorCheatConsole
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1056,6 +1056,6 @@ SceneRoots:
   - {fileID: 1614234146}
   - {fileID: 1219594648}
   - {fileID: 1654401972}
+  - {fileID: 1737338073}
   - {fileID: 4392512577695663770}
   - {fileID: 25148031586133358}
-  - {fileID: 1737338073}
