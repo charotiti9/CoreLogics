@@ -238,79 +238,34 @@ public partial class InputManager
     #region Cheat Action Events
 
     /// <summary>
-    /// Open 액션 Started 이벤트
+    /// OpenCheat 액션 Started 이벤트
     /// </summary>
-    public event Action OnOpenStarted;
+    public event Action OnOpenCheatStarted;
 
     /// <summary>
-    /// Open 액션 Performed 이벤트
+    /// OpenCheat 액션 Performed 이벤트
     /// </summary>
-    public event Action OnOpenPerformed;
+    public event Action OnOpenCheatPerformed;
 
     /// <summary>
-    /// Open 액션 Canceled 이벤트
+    /// OpenCheat 액션 Canceled 이벤트
     /// </summary>
-    public event Action OnOpenCanceled;
+    public event Action OnOpenCheatCanceled;
 
     /// <summary>
-    /// Close 액션 Started 이벤트
+    /// CloseCheat 액션 Started 이벤트
     /// </summary>
-    public event Action OnCloseStarted;
+    public event Action OnCloseCheatStarted;
 
     /// <summary>
-    /// Close 액션 Performed 이벤트
+    /// CloseCheat 액션 Performed 이벤트
     /// </summary>
-    public event Action OnClosePerformed;
+    public event Action OnCloseCheatPerformed;
 
     /// <summary>
-    /// Close 액션 Canceled 이벤트
+    /// CloseCheat 액션 Canceled 이벤트
     /// </summary>
-    public event Action OnCloseCanceled;
-
-    /// <summary>
-    /// Up 액션 Started 이벤트
-    /// </summary>
-    public event Action OnUpStarted;
-
-    /// <summary>
-    /// Up 액션 Performed 이벤트
-    /// </summary>
-    public event Action OnUpPerformed;
-
-    /// <summary>
-    /// Up 액션 Canceled 이벤트
-    /// </summary>
-    public event Action OnUpCanceled;
-
-    /// <summary>
-    /// Down 액션 Started 이벤트
-    /// </summary>
-    public event Action OnDownStarted;
-
-    /// <summary>
-    /// Down 액션 Performed 이벤트
-    /// </summary>
-    public event Action OnDownPerformed;
-
-    /// <summary>
-    /// Down 액션 Canceled 이벤트
-    /// </summary>
-    public event Action OnDownCanceled;
-
-    /// <summary>
-    /// Enter 액션 Started 이벤트
-    /// </summary>
-    public event Action OnEnterStarted;
-
-    /// <summary>
-    /// Enter 액션 Performed 이벤트
-    /// </summary>
-    public event Action OnEnterPerformed;
-
-    /// <summary>
-    /// Enter 액션 Canceled 이벤트
-    /// </summary>
-    public event Action OnEnterCanceled;
+    public event Action OnCloseCheatCanceled;
 
     #endregion
 
@@ -431,30 +386,15 @@ public partial class InputManager
     /// </summary>
     private void BindCheatActions()
     {
-        // Open
-        inputActions.Cheat.Open.started += ctx => OnOpenStarted?.Invoke();
-        inputActions.Cheat.Open.performed += ctx => OnOpenPerformed?.Invoke();
-        inputActions.Cheat.Open.canceled += ctx => OnOpenCanceled?.Invoke();
+        // OpenCheat
+        inputActions.Cheat.OpenCheat.started += ctx => OnOpenCheatStarted?.Invoke();
+        inputActions.Cheat.OpenCheat.performed += ctx => OnOpenCheatPerformed?.Invoke();
+        inputActions.Cheat.OpenCheat.canceled += ctx => OnOpenCheatCanceled?.Invoke();
 
-        // Close
-        inputActions.Cheat.Close.started += ctx => OnCloseStarted?.Invoke();
-        inputActions.Cheat.Close.performed += ctx => OnClosePerformed?.Invoke();
-        inputActions.Cheat.Close.canceled += ctx => OnCloseCanceled?.Invoke();
-
-        // Up
-        inputActions.Cheat.Up.started += ctx => OnUpStarted?.Invoke();
-        inputActions.Cheat.Up.performed += ctx => OnUpPerformed?.Invoke();
-        inputActions.Cheat.Up.canceled += ctx => OnUpCanceled?.Invoke();
-
-        // Down
-        inputActions.Cheat.Down.started += ctx => OnDownStarted?.Invoke();
-        inputActions.Cheat.Down.performed += ctx => OnDownPerformed?.Invoke();
-        inputActions.Cheat.Down.canceled += ctx => OnDownCanceled?.Invoke();
-
-        // Enter
-        inputActions.Cheat.Enter.started += ctx => OnEnterStarted?.Invoke();
-        inputActions.Cheat.Enter.performed += ctx => OnEnterPerformed?.Invoke();
-        inputActions.Cheat.Enter.canceled += ctx => OnEnterCanceled?.Invoke();
+        // CloseCheat
+        inputActions.Cheat.CloseCheat.started += ctx => OnCloseCheatStarted?.Invoke();
+        inputActions.Cheat.CloseCheat.performed += ctx => OnCloseCheatPerformed?.Invoke();
+        inputActions.Cheat.CloseCheat.canceled += ctx => OnCloseCheatCanceled?.Invoke();
 
     }
 
@@ -633,43 +573,19 @@ public partial class InputManager
     #region Cheat Get Methods
 
     /// <summary>
-    /// Open 버튼 눌림 상태 조회
+    /// OpenCheat 버튼 눌림 상태 조회
     /// </summary>
-    public bool IsOpenPressed()
+    public bool IsOpenCheatPressed()
     {
-        return inputActions.Cheat.Open.IsPressed();
+        return inputActions.Cheat.OpenCheat.IsPressed();
     }
 
     /// <summary>
-    /// Close 버튼 눌림 상태 조회
+    /// CloseCheat 버튼 눌림 상태 조회
     /// </summary>
-    public bool IsClosePressed()
+    public bool IsCloseCheatPressed()
     {
-        return inputActions.Cheat.Close.IsPressed();
-    }
-
-    /// <summary>
-    /// Up 버튼 눌림 상태 조회
-    /// </summary>
-    public bool IsUpPressed()
-    {
-        return inputActions.Cheat.Up.IsPressed();
-    }
-
-    /// <summary>
-    /// Down 버튼 눌림 상태 조회
-    /// </summary>
-    public bool IsDownPressed()
-    {
-        return inputActions.Cheat.Down.IsPressed();
-    }
-
-    /// <summary>
-    /// Enter 버튼 눌림 상태 조회
-    /// </summary>
-    public bool IsEnterPressed()
-    {
-        return inputActions.Cheat.Enter.IsPressed();
+        return inputActions.Cheat.CloseCheat.IsPressed();
     }
 
     #endregion

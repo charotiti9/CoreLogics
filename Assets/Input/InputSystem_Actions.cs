@@ -1083,7 +1083,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             ""id"": ""006c7b60-eb00-4d37-a09e-57cfe1b293b5"",
             ""actions"": [
                 {
-                    ""name"": ""Open"",
+                    ""name"": ""OpenCheat"",
                     ""type"": ""Button"",
                     ""id"": ""b580cfc6-8a78-4e54-a26c-b66818c7bc9f"",
                     ""expectedControlType"": """",
@@ -1092,36 +1092,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Close"",
+                    ""name"": ""CloseCheat"",
                     ""type"": ""Button"",
                     ""id"": ""a5a96b9e-3e32-4c20-8c8d-38600f6bf8a8"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Up"",
-                    ""type"": ""Button"",
-                    ""id"": ""9058fff8-8a51-4268-a2ab-37baf1493a41"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Down"",
-                    ""type"": ""Button"",
-                    ""id"": ""a4bee65d-fe61-4257-be00-3c88577619c8"",
-                    ""expectedControlType"": """",
-                    ""processors"": """",
-                    ""interactions"": """",
-                    ""initialStateCheck"": false
-                },
-                {
-                    ""name"": ""Enter"",
-                    ""type"": ""Button"",
-                    ""id"": ""83b2b155-1244-43d7-a29c-d89049a833a6"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -1136,7 +1109,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Open"",
+                    ""action"": ""OpenCheat"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -1147,62 +1120,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Close"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""4e8af3ea-f4f8-48c7-b3e3-46de4be215d1"",
-                    ""path"": ""<Keyboard>/w"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Up"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""c2f0879a-5a48-4bf1-941a-1831fa89e79f"",
-                    ""path"": ""<Keyboard>/upArrow"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Up"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""d2ce13da-2711-4af4-8427-e789f92bd7e2"",
-                    ""path"": ""<Keyboard>/s"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Down"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""a864c239-9379-40c9-8a27-64a33df5b760"",
-                    ""path"": ""<Keyboard>/downArrow"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Down"",
-                    ""isComposite"": false,
-                    ""isPartOfComposite"": false
-                },
-                {
-                    ""name"": """",
-                    ""id"": ""ca871c4b-460a-44b3-b97c-889660e7bf1a"",
-                    ""path"": ""<Keyboard>/enter"",
-                    ""interactions"": """",
-                    ""processors"": """",
-                    ""groups"": "";Keyboard&Mouse"",
-                    ""action"": ""Enter"",
+                    ""action"": ""CloseCheat"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1297,11 +1215,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_UI_TrackedDeviceOrientation = m_UI.FindAction("TrackedDeviceOrientation", throwIfNotFound: true);
         // Cheat
         m_Cheat = asset.FindActionMap("Cheat", throwIfNotFound: true);
-        m_Cheat_Open = m_Cheat.FindAction("Open", throwIfNotFound: true);
-        m_Cheat_Close = m_Cheat.FindAction("Close", throwIfNotFound: true);
-        m_Cheat_Up = m_Cheat.FindAction("Up", throwIfNotFound: true);
-        m_Cheat_Down = m_Cheat.FindAction("Down", throwIfNotFound: true);
-        m_Cheat_Enter = m_Cheat.FindAction("Enter", throwIfNotFound: true);
+        m_Cheat_OpenCheat = m_Cheat.FindAction("OpenCheat", throwIfNotFound: true);
+        m_Cheat_CloseCheat = m_Cheat.FindAction("CloseCheat", throwIfNotFound: true);
     }
 
     ~@InputSystem_Actions()
@@ -1763,11 +1678,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     // Cheat
     private readonly InputActionMap m_Cheat;
     private List<ICheatActions> m_CheatActionsCallbackInterfaces = new List<ICheatActions>();
-    private readonly InputAction m_Cheat_Open;
-    private readonly InputAction m_Cheat_Close;
-    private readonly InputAction m_Cheat_Up;
-    private readonly InputAction m_Cheat_Down;
-    private readonly InputAction m_Cheat_Enter;
+    private readonly InputAction m_Cheat_OpenCheat;
+    private readonly InputAction m_Cheat_CloseCheat;
     /// <summary>
     /// Provides access to input actions defined in input action map "Cheat".
     /// </summary>
@@ -1780,25 +1692,13 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public CheatActions(@InputSystem_Actions wrapper) { m_Wrapper = wrapper; }
         /// <summary>
-        /// Provides access to the underlying input action "Cheat/Open".
+        /// Provides access to the underlying input action "Cheat/OpenCheat".
         /// </summary>
-        public InputAction @Open => m_Wrapper.m_Cheat_Open;
+        public InputAction @OpenCheat => m_Wrapper.m_Cheat_OpenCheat;
         /// <summary>
-        /// Provides access to the underlying input action "Cheat/Close".
+        /// Provides access to the underlying input action "Cheat/CloseCheat".
         /// </summary>
-        public InputAction @Close => m_Wrapper.m_Cheat_Close;
-        /// <summary>
-        /// Provides access to the underlying input action "Cheat/Up".
-        /// </summary>
-        public InputAction @Up => m_Wrapper.m_Cheat_Up;
-        /// <summary>
-        /// Provides access to the underlying input action "Cheat/Down".
-        /// </summary>
-        public InputAction @Down => m_Wrapper.m_Cheat_Down;
-        /// <summary>
-        /// Provides access to the underlying input action "Cheat/Enter".
-        /// </summary>
-        public InputAction @Enter => m_Wrapper.m_Cheat_Enter;
+        public InputAction @CloseCheat => m_Wrapper.m_Cheat_CloseCheat;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1825,21 +1725,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         {
             if (instance == null || m_Wrapper.m_CheatActionsCallbackInterfaces.Contains(instance)) return;
             m_Wrapper.m_CheatActionsCallbackInterfaces.Add(instance);
-            @Open.started += instance.OnOpen;
-            @Open.performed += instance.OnOpen;
-            @Open.canceled += instance.OnOpen;
-            @Close.started += instance.OnClose;
-            @Close.performed += instance.OnClose;
-            @Close.canceled += instance.OnClose;
-            @Up.started += instance.OnUp;
-            @Up.performed += instance.OnUp;
-            @Up.canceled += instance.OnUp;
-            @Down.started += instance.OnDown;
-            @Down.performed += instance.OnDown;
-            @Down.canceled += instance.OnDown;
-            @Enter.started += instance.OnEnter;
-            @Enter.performed += instance.OnEnter;
-            @Enter.canceled += instance.OnEnter;
+            @OpenCheat.started += instance.OnOpenCheat;
+            @OpenCheat.performed += instance.OnOpenCheat;
+            @OpenCheat.canceled += instance.OnOpenCheat;
+            @CloseCheat.started += instance.OnCloseCheat;
+            @CloseCheat.performed += instance.OnCloseCheat;
+            @CloseCheat.canceled += instance.OnCloseCheat;
         }
 
         /// <summary>
@@ -1851,21 +1742,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="CheatActions" />
         private void UnregisterCallbacks(ICheatActions instance)
         {
-            @Open.started -= instance.OnOpen;
-            @Open.performed -= instance.OnOpen;
-            @Open.canceled -= instance.OnOpen;
-            @Close.started -= instance.OnClose;
-            @Close.performed -= instance.OnClose;
-            @Close.canceled -= instance.OnClose;
-            @Up.started -= instance.OnUp;
-            @Up.performed -= instance.OnUp;
-            @Up.canceled -= instance.OnUp;
-            @Down.started -= instance.OnDown;
-            @Down.performed -= instance.OnDown;
-            @Down.canceled -= instance.OnDown;
-            @Enter.started -= instance.OnEnter;
-            @Enter.performed -= instance.OnEnter;
-            @Enter.canceled -= instance.OnEnter;
+            @OpenCheat.started -= instance.OnOpenCheat;
+            @OpenCheat.performed -= instance.OnOpenCheat;
+            @OpenCheat.canceled -= instance.OnOpenCheat;
+            @CloseCheat.started -= instance.OnCloseCheat;
+            @CloseCheat.performed -= instance.OnCloseCheat;
+            @CloseCheat.canceled -= instance.OnCloseCheat;
         }
 
         /// <summary>
@@ -2121,39 +2003,18 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     public interface ICheatActions
     {
         /// <summary>
-        /// Method invoked when associated input action "Open" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "OpenCheat" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnOpen(InputAction.CallbackContext context);
+        void OnOpenCheat(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "Close" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "CloseCheat" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnClose(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "Up" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnUp(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "Down" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnDown(InputAction.CallbackContext context);
-        /// <summary>
-        /// Method invoked when associated input action "Enter" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
-        /// </summary>
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
-        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnEnter(InputAction.CallbackContext context);
+        void OnCloseCheat(InputAction.CallbackContext context);
     }
 }
