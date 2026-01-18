@@ -110,7 +110,10 @@ namespace Common.UI
             GameObject.Destroy(ui.gameObject);
 
             // AddressableLoader를 통한 해제 (Prefab 에셋 해제)
-            AddressableLoader.Instance.Release(address);
+            if (AddressableLoader.IsAlive())
+            {
+                AddressableLoader.Instance.Release(address);
+            }
         }
         /// <summary>
         /// UI를 숨깁니다. (내부 비동기 처리)

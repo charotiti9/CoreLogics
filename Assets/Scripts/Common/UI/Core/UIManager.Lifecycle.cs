@@ -147,7 +147,11 @@ namespace Common.UI
             // MainCanvas Addressable 해제
             // AddressableLoader는 참조 카운팅을 사용하므로,
             // Addressable에서 로드한 경우에만 참조 카운트가 감소합니다.
-            AddressableLoader.Instance.Release(MAIN_CANVAS_ADDRESS);
+
+            if (AddressableLoader.IsAlive())
+            {
+                AddressableLoader.Instance.Release(MAIN_CANVAS_ADDRESS);
+            }
         }
     }
 }
