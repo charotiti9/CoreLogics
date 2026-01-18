@@ -50,10 +50,10 @@ namespace Core.Cheat
         private const int MAX_LOG_MESSAGES = 10;
 
         // UI 크기
-        private const float WINDOW_WIDTH = 500f;
-        private const float WINDOW_HEIGHT = 300f;
-        private const float SUGGESTION_HEIGHT = 25f;
-        private const int MAX_VISIBLE_SUGGESTIONS = 5;
+        private const float WINDOW_WIDTH = 600f;
+        private const float WINDOW_HEIGHT = 400f;
+        private const float SUGGESTION_HEIGHT = 30f;
+        private const int MAX_VISIBLE_SUGGESTIONS = 6;
 
         // 포커스 제어용
         private bool shouldFocusInput = false;
@@ -142,16 +142,16 @@ namespace Core.Cheat
 
             // 입력 필드 스타일
             inputStyle = new GUIStyle(GUI.skin.textField);
-            inputStyle.fontSize = 16;
+            inputStyle.fontSize = 24;
             inputStyle.normal.textColor = Color.white;
             inputStyle.focused.textColor = Color.white;
-            inputStyle.padding = new RectOffset(10, 10, 5, 5);
+            inputStyle.padding = new RectOffset(10, 10, 8, 8);
 
             // 자동완성 항목 스타일
             suggestionStyle = new GUIStyle(GUI.skin.label);
-            suggestionStyle.fontSize = 14;
+            suggestionStyle.fontSize = 24;
             suggestionStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
-            suggestionStyle.padding = new RectOffset(10, 10, 3, 3);
+            suggestionStyle.padding = new RectOffset(10, 10, 4, 4);
 
             // 선택된 자동완성 항목 스타일
             selectedSuggestionStyle = new GUIStyle(suggestionStyle);
@@ -160,13 +160,13 @@ namespace Core.Cheat
 
             // 설명 스타일
             descriptionStyle = new GUIStyle(GUI.skin.label);
-            descriptionStyle.fontSize = 12;
+            descriptionStyle.fontSize = 20;
             descriptionStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
-            descriptionStyle.padding = new RectOffset(20, 10, 0, 3);
+            descriptionStyle.padding = new RectOffset(20, 10, 0, 4);
 
             // 로그 스타일
             logStyle = new GUIStyle(GUI.skin.label);
-            logStyle.fontSize = 12;
+            logStyle.fontSize = 24;
             logStyle.normal.textColor = new Color(0.5f, 1f, 0.5f);
             logStyle.padding = new RectOffset(5, 5, 2, 2);
 
@@ -222,7 +222,7 @@ namespace Core.Cheat
 
                 // 입력 필드
                 GUI.SetNextControlName(INPUT_CONTROL_NAME);
-                string newInput = GUILayout.TextField(inputText, inputStyle, GUILayout.Height(30));
+                string newInput = GUILayout.TextField(inputText, inputStyle, GUILayout.Height(40));
 
                 // 입력이 변경되면 자동완성 업데이트
                 if (newInput != inputText)
