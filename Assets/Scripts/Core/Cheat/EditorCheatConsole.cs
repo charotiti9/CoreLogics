@@ -53,7 +53,7 @@ namespace Core.Cheat
         private const float WINDOW_WIDTH = 600f;
         private const float WINDOW_HEIGHT = 400f;
         private const float SUGGESTION_HEIGHT = 30f;
-        private const int MAX_VISIBLE_SUGGESTIONS = 6;
+        private const int MAX_VISIBLE_SUGGESTIONS = 4;
 
         // 포커스 제어용
         private bool shouldFocusInput = false;
@@ -76,21 +76,6 @@ namespace Core.Cheat
             if (isVisible && InputManager.Instance.IsCloseCheatPressed())
             {
                 Hide();
-            }
-        }
-
-        /// <summary>
-        /// UI 표시/숨김 토글
-        /// </summary>
-        private void ToggleVisibility()
-        {
-            if (isVisible)
-            {
-                Hide();
-            }
-            else
-            {
-                Show();
             }
         }
 
@@ -433,7 +418,7 @@ namespace Core.Cheat
                 return;
             }
 
-            float listHeight = Mathf.Min(suggestions.Count, MAX_VISIBLE_SUGGESTIONS) * (SUGGESTION_HEIGHT + 20);
+            float listHeight = Mathf.Min(suggestions.Count, MAX_VISIBLE_SUGGESTIONS) * (SUGGESTION_HEIGHT + 40);
             scrollPosition = GUILayout.BeginScrollView(scrollPosition, GUILayout.Height(listHeight));
             {
                 for (int i = 0; i < suggestions.Count; i++)
