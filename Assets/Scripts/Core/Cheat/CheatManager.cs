@@ -216,7 +216,7 @@ namespace Core.Cheat
             for (int i = 0; i < allCheatData.Count; i++)
             {
                 var data = allCheatData[i];
-                if (data.ID.ToLower().StartsWith(lowerInput))
+                if (data.ID.ToLower().Contains(lowerInput))
                 {
                     result.Add(data);
                 }
