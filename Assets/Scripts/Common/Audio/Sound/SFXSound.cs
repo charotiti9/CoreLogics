@@ -21,18 +21,22 @@ namespace Common.Audio
 
         private UniTaskCompletionSource completionSource;
 
+        private void Awake()
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                GameLogger.LogError("[SFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
+            }
+        }
+
         /// <summary>
         /// SFXSound 초기화 (Prefab의 AudioSource 컴포넌트 참조)
         /// </summary>
         public override void Initialize()
         {
-            // AudioSource는 Prefab에 미리 포함되어 있음
-            audioSource = GetComponent<AudioSource>();
-
-            if (audioSource == null)
-            {
-                GameLogger.LogError("[SFXSound] AudioSource 컴포넌트가 없습니다. Prefab에 AudioSource를 추가해주세요.");
-            }
+            // Pool 시스템 사용 시 Awake()에서 자동 초기화됨
+            // AudioSoundBase의 abstract 구현을 위해 유지
         }
 
         /// <summary>
