@@ -133,19 +133,56 @@ namespace Common.Audio
         public void StopAll()
         {
             // 2D 정지
-            foreach (var sound in active2DSounds)
+            for (int i = active2DSounds.Count - 1; i >= 0; i--)
             {
+                var sound = active2DSounds[i];
                 sound.Stop();
+                priorityQueue2D.Remove(sound);
+                PoolManager.ReturnToPool(sound);
             }
             active2DSounds.Clear();
-            priorityQueue2D.Clear();
 
             // 3D 정지
-            foreach (var sound in active3DSounds)
+            for (int i = active3DSounds.Count - 1; i >= 0; i--)
             {
+                var sound = active3DSounds[i];
                 sound.Stop();
+                PoolManager.ReturnToPool(sound);
             }
             active3DSounds.Clear();
+        }
+
+        /// <summary>
+        /// 특정 주소를 가진 사운드 정지
+        /// </summary>
+        public void StopSound(string address)
+        {
+            if (string.IsNullOrEmpty(address)) return;
+
+            // 2D 사운드 정지
+            for (int i = active2DSounds.Count - 1; i >= 0; i--)
+            {
+                var sound = active2DSounds[i];
+                if (sound.CurrentAddress == address)
+                {
+                    sound.Stop();
+                    priorityQueue2D.Remove(sound);
+                    active2DSounds.RemoveAt(i);
+                    PoolManager.ReturnToPool(sound);
+                }
+            }
+
+            // 3D 사운드 정지
+            for (int i = active3DSounds.Count - 1; i >= 0; i--)
+            {
+                var sound = active3DSounds[i];
+                if (sound.CurrentAddress == address)
+                {
+                    sound.Stop();
+                    active3DSounds.RemoveAt(i);
+                    PoolManager.ReturnToPool(sound);
+                }
+            }
         }
 
         /// <summary>

@@ -243,6 +243,15 @@ namespace Common.Audio
             sfxChannel.StopAll();
         }
 
+        /// <summary>
+        /// 특정 주소의 SFX 정지
+        /// </summary>
+        public void StopSFX(string address)
+        {
+            if (sfxChannel == null) return;
+            sfxChannel.StopSound(address);
+        }
+
         #endregion
 
         #region Voice API
