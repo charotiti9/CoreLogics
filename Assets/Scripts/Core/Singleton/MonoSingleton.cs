@@ -105,7 +105,7 @@ public abstract class EagerMonoSingleton<T> : MonoBehaviour where T : MonoBehavi
         // 자신이 싱글톤 인스턴스인 경우에만 해제
         if (_instance == this)
         {
-            isApplicationQuitting = true;
+            _instance = null;
             isInitialized = false;
         }
     }
@@ -203,7 +203,7 @@ public abstract class LazyMonoSingleton<T> : MonoBehaviour where T : MonoBehavio
         // 자신이 싱글톤 인스턴스인 경우에만 해제
         if (_instance == this)
         {
-            isApplicationQuitting = true;
+            _instance = null;
         }
     }
 }
