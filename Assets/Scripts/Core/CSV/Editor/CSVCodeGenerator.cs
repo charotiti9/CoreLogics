@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -306,14 +306,7 @@ public static class CSVCodeGenerator
             if (column.HasReference)
             {
                 sb.AppendLine($"    [CSVReference(\"{column.ReferenceTableName}\", \"{column.ReferenceColumnName}\")]");
-
-                // 참조 객체 필드 (CategoryID → Category)
-                string refFieldName = column.ColumnName.Replace("ID", "");
-                sb.AppendLine($"    public {column.ReferenceTableName} {refFieldName};");
-                sb.AppendLine();
-
-                // ID 필드 (내부용)
-                sb.AppendLine($"    public {ConvertToCSType(column.Type)} {column.ColumnName};");
+                sb.AppendLine($"    public {column.ReferenceTableName} {column.ColumnName};");
             }
             else
             {
