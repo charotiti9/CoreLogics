@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -55,18 +55,24 @@ public static class CSVReferenceResolver
                     continue;
                 }
 
-                // ID 필드 찾기 (예: Category → CategoryID)
-                string idFieldName = refField.Name + "ID";
-                FieldInfo idField = type.GetField(idFieldName);
-
-                if (idField == null)
+                // ICSVData 타입 필드가 아니면 스킵
+                if (!typeof(ICSVData).IsAssignableFrom(refField.FieldType))
                 {
-                    GameLogger.LogWarning($"[CSVReferenceResolver] ID 필드 없음: {idFieldName} in {type.Name}");
+                    GameLogger.LogWarning($"[CSVReferenceResolver] ICSVData 타입이 아님: {refField.Name} in {type.Name}");
                     continue;
                 }
 
-                // ID 값 가져오기
-                object idValue = idField.GetValue(data);
+                // 임시 인스턴스에서 키 값 추출
+                object idValue = null;
+                object tempInstance = refField.GetValue(data);
+                if (tempInstance != null)
+                {
+                    FieldInfo keyField = refField.FieldType.GetField(attr.ReferenceColumnName);
+                    if (keyField != null)
+                    {
+                        idValue = keyField.GetValue(tempInstance);
+                    }
+                }
 
                 if (idValue == null)
                 {

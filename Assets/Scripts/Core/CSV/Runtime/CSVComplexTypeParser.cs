@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -60,10 +60,12 @@ public static class CSVComplexTypeParser
         }
 
         // 커스텀 타입 (클래스 또는 구조체, string 제외)
+        // ICSVData를 구현하는 타입은 CSV 참조 시스템에서 처리하므로 제외
         if ((type.IsClass || type.IsValueType) &&
             type != typeof(string) &&
             !type.IsPrimitive &&
-            !type.IsEnum)
+            !type.IsEnum &&
+            !typeof(ICSVData).IsAssignableFrom(type))
         {
             // [Serializable] 속성이 있는지 체크
             if (Attribute.IsDefined(type, typeof(SerializableAttribute)))

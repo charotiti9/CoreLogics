@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -339,6 +339,13 @@ public static class CSVParser
 
             Type typeToConvert = isNullable ? underlyingType : targetType;
 
+            // ICSVData 타입 처리 (다른 CSV 테이블 참조)
+            // 임시 인스턴스를 생성하고 키 값을 저장, 나중에 CSVReferenceResolver에서 실제 객체로 교체
+            if (typeof(ICSVData).IsAssignableFrom(typeToConvert))
+            {
+                return CreateTempCSVDataInstance(value, typeToConvert);
+            }
+
             // 복합 타입 처리 (배열, 리스트, 딕셔너리, 커스텀 클래스)
             if (CSVComplexTypeParser.IsComplexType(typeToConvert, out ComplexTypeKind kind))
             {
@@ -396,6 +403,38 @@ public static class CSVParser
             if (targetType.IsValueType)
                 return Activator.CreateInstance(targetType);
 
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// ICSVData 타입의 임시 인스턴스 생성
+    /// 문자열 키를 첫 번째 string 필드에 저장하여 나중에 참조 해결에 사용
+    /// </summary>
+    private static object CreateTempCSVDataInstance(string keyValue, Type targetType)
+    {
+        try
+        {
+            // 임시 인스턴스 생성
+            object instance = Activator.CreateInstance(targetType);
+
+            // 첫 번째 string 필드를 찾아 키 값 저장 (보통 Key 또는 ID)
+            FieldInfo[] fields = targetType.GetFields(BindingFlags.Public | BindingFlags.Instance);
+
+            for (int i = 0; i < fields.Length; i++)
+            {
+                if (fields[i].FieldType == typeof(string))
+                {
+                    fields[i].SetValue(instance, keyValue);
+                    break;
+                }
+            }
+
+            return instance;
+        }
+        catch (Exception e)
+        {
+            GameLogger.LogError($"[CSVParser] ICSVData 임시 인스턴스 생성 실패: {targetType.Name}\n{e.Message}");
             return null;
         }
     }
