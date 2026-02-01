@@ -14,6 +14,7 @@ namespace Common.UI
     {
         private readonly Dictionary<UILayer, GameObject> dimObjects = new Dictionary<UILayer, GameObject>();
         private readonly Dictionary<UILayer, List<UIBase>> dimUIStacks = new Dictionary<UILayer, List<UIBase>>();
+        private readonly Dictionary<UILayer, CancellationTokenSource> dimFadeCts = new Dictionary<UILayer, CancellationTokenSource>();
         private readonly UICanvas uiCanvas;
 
         // Dim 설정
@@ -39,6 +40,9 @@ namespace Common.UI
         /// <param name="ct">CancellationToken</param>
         public async UniTask ShowDimAsync(UIBase ui, UILayer layer, float alpha = DIM_DEFAULT_ALPHA, CancellationToken ct = default)
         {
+            // 진행 중인 페이드 작업 취소
+            CancelFadeOperation(layer);
+
             // UI Stack에 추가
             if (!dimUIStacks.ContainsKey(layer))
             {
@@ -58,6 +62,11 @@ namespace Common.UI
             {
                 dimObj = CreateDim(layer);
                 dimObjects[layer] = dimObj;
+            }
+            else
+            {
+                // 기존 Dim이 있으면 활성화
+                dimObj.SetActive(true);
             }
 
             // Dim을 UI 바로 아래로 이동 (Stack 최상단 UI 기준)
@@ -82,7 +91,17 @@ namespace Common.UI
             CanvasGroup dimCanvasGroup = dimObj.GetComponent<CanvasGroup>();
             if (dimCanvasGroup != null)
             {
-                await FadeAsync(dimCanvasGroup, dimCanvasGroup.alpha, alpha, ct);
+                var fadeCts = CreateFadeOperation(layer);
+                var linkedCt = CancellationTokenSource.CreateLinkedTokenSource(ct, fadeCts.Token).Token;
+
+                try
+                {
+                    await FadeAsync(dimCanvasGroup, dimCanvasGroup.alpha, alpha, linkedCt);
+                }
+                catch (System.OperationCanceledException)
+                {
+                    // 취소된 경우 무시 (새로운 작업이 시작됨)
+                }
             }
         }
 
@@ -167,9 +186,13 @@ namespace Common.UI
 
         /// <summary>
         /// Dim을 완전히 숨깁니다. (내부용)
+        /// Destroy하지 않고 비활성화하여 재사용합니다.
         /// </summary>
         private async UniTask HideDimCompletelyAsync(UILayer layer, CancellationToken ct)
         {
+            // 진행 중인 페이드 작업 취소
+            CancelFadeOperation(layer);
+
             if (!dimObjects.TryGetValue(layer, out GameObject dimObj) || dimObj == null)
             {
                 return;
@@ -177,11 +200,24 @@ namespace Common.UI
 
             // 페이드 아웃 애니메이션
             CanvasGroup canvasGroup = dimObj.GetComponent<CanvasGroup>();
-            await FadeAsync(canvasGroup, canvasGroup.alpha, 0f, ct);
 
-            // Dim 제거
-            GameObject.Destroy(dimObj);
-            dimObjects.Remove(layer);
+            var fadeCts = CreateFadeOperation(layer);
+            var linkedCt = CancellationTokenSource.CreateLinkedTokenSource(ct, fadeCts.Token).Token;
+
+            try
+            {
+                await FadeAsync(canvasGroup, canvasGroup.alpha, 0f, linkedCt);
+
+                // 페이드 완료 후 비활성화 (취소되지 않은 경우에만)
+                if (dimObj != null)
+                {
+                    dimObj.SetActive(false);
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                // 취소된 경우 무시 (새로운 작업이 시작됨)
+            }
         }
 
         /// <summary>
@@ -205,6 +241,9 @@ namespace Common.UI
         /// <param name="layer">레이어</param>
         public void ClearDim(UILayer layer)
         {
+            // 진행 중인 페이드 작업 취소
+            CancelFadeOperation(layer);
+
             if (dimObjects.TryGetValue(layer, out GameObject dimObj) && dimObj != null)
             {
                 GameObject.Destroy(dimObj);
@@ -292,6 +331,14 @@ namespace Common.UI
         /// </summary>
         public void ClearAll()
         {
+            // 모든 페이드 작업 취소
+            foreach (var cts in dimFadeCts.Values)
+            {
+                cts?.Cancel();
+                cts?.Dispose();
+            }
+            dimFadeCts.Clear();
+
             foreach (var dimObj in dimObjects.Values)
             {
                 if (dimObj != null)
@@ -307,6 +354,29 @@ namespace Common.UI
                 stack.Clear();
             }
             dimUIStacks.Clear();
+        }
+
+        /// <summary>
+        /// 레이어의 진행 중인 페이드 작업을 취소합니다.
+        /// </summary>
+        private void CancelFadeOperation(UILayer layer)
+        {
+            if (dimFadeCts.TryGetValue(layer, out var cts) && cts != null)
+            {
+                cts.Cancel();
+                cts.Dispose();
+                dimFadeCts.Remove(layer);
+            }
+        }
+
+        /// <summary>
+        /// 레이어의 새 페이드 작업을 생성합니다.
+        /// </summary>
+        private CancellationTokenSource CreateFadeOperation(UILayer layer)
+        {
+            var cts = new CancellationTokenSource();
+            dimFadeCts[layer] = cts;
+            return cts;
         }
     }
 }
