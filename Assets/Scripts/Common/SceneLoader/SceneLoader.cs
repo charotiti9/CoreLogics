@@ -90,11 +90,12 @@ namespace Common.SceneLoader
         private async UniTask LoadWithPreloadAsync(string sceneAddress, SceneTransitionOptions options, CancellationToken ct)
         {
             SceneFadeUI fadeUI = null;
+            LoadingUI loadingUI = null;
 
             // 1. 로딩 UI 표시 (옵션)
             if (options.ShowLoadingUI)
             {
-                await ShowLoadingUIAsync(ct);
+                loadingUI = await ShowLoadingUIAsync(ct);
             }
 
             // 2. 새 씬 비동기 로드 (활성화 대기)
@@ -103,8 +104,8 @@ namespace Common.SceneLoader
                 UnityEngine.SceneManagement.LoadSceneMode.Single,
                 activateOnLoad: false);
 
-            // 로드 완료 대기 (Task 사용)
-            await handle.Task;
+            // 진행률 추적하며 로드 완료 대기
+            await WaitForLoadWithProgressAsync(handle, options, loadingUI, ct);
 
             if (handle.Status != AsyncOperationStatus.Succeeded)
             {
@@ -156,6 +157,7 @@ namespace Common.SceneLoader
         private async UniTask LoadImmediateAsync(string sceneAddress, SceneTransitionOptions options, CancellationToken ct)
         {
             SceneFadeUI fadeUI = null;
+            LoadingUI loadingUI = null;
 
             // 1. 페이드 아웃 (옵션)
             if (options.UseFade)
@@ -167,7 +169,7 @@ namespace Common.SceneLoader
             // 2. 로딩 UI 표시 (옵션)
             if (options.ShowLoadingUI)
             {
-                await ShowLoadingUIAsync(ct);
+                loadingUI = await ShowLoadingUIAsync(ct);
             }
 
             // 3. 이전 씬 핸들 해제
@@ -183,8 +185,8 @@ namespace Common.SceneLoader
                 UnityEngine.SceneManagement.LoadSceneMode.Single,
                 activateOnLoad: true);
 
-            // 로드 완료 대기 (Task 사용 - 씬 전환 중 UniTask PlayerLoop 중단 방지)
-            await currentSceneHandle.Task;
+            // 진행률 추적하며 로드 완료 대기
+            await WaitForLoadWithProgressAsync(currentSceneHandle, options, loadingUI, ct);
 
             if (currentSceneHandle.Status != AsyncOperationStatus.Succeeded)
             {
@@ -197,13 +199,35 @@ namespace Common.SceneLoader
             {
                 HideLoadingUI();
             }
-            
+
             // 6. 페이드 인 (옵션) - 씬 전환 후이므로 외부 토큰 사용 안 함
             if (options.UseFade && fadeUI != null)
             {
                 await fadeUI.FadeInAsync(options.FadeDuration, CancellationToken.None);
                 HideFadeUI();
             }
+        }
+
+        /// <summary>
+        /// 진행률을 추적하며 씬 로드 완료를 대기합니다.
+        /// </summary>
+        private async UniTask WaitForLoadWithProgressAsync(
+            AsyncOperationHandle<SceneInstance> handle,
+            SceneTransitionOptions options,
+            LoadingUI loadingUI,
+            CancellationToken ct)
+        {
+            while (!handle.IsDone)
+            {
+                float progress = handle.PercentComplete;
+                options.OnProgress?.Invoke(progress);
+                loadingUI?.UpdateProgress(progress);
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+
+            // 완료 시 100% 콜백
+            options.OnProgress?.Invoke(1f);
+            loadingUI?.UpdateProgress(1f);
         }
 
         /// <summary>
@@ -240,19 +264,20 @@ namespace Common.SceneLoader
         /// <summary>
         /// 로딩 UI를 표시합니다.
         /// </summary>
-        private async UniTask ShowLoadingUIAsync(CancellationToken ct)
+        /// <returns>표시된 LoadingUI 인스턴스, UIManager가 없으면 null</returns>
+        private async UniTask<LoadingUI> ShowLoadingUIAsync(CancellationToken ct)
         {
             if (!UIManager.IsAlive())
             {
                 GameLogger.LogWarning("[SceneLoader] UIManager가 초기화되지 않아 로딩 UI를 표시할 수 없습니다.");
-                return;
+                return null;
             }
-            
-            if(!UIManager.Instance.IsSpawned<LoadingUI>())
+
+            if (!UIManager.Instance.IsSpawned<LoadingUI>())
             {
                 await UIManager.Instance.SpawnAsync<LoadingUI>();
             }
-            await UIManager.Instance.ShowAsync<LoadingUI>(ct: ct);
+            return await UIManager.Instance.ShowAsync<LoadingUI>(ct: ct);
         }
 
         /// <summary>

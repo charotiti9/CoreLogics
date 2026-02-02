@@ -50,5 +50,16 @@ namespace Common.SceneLoader
         {
             // 리소스 정리
         }
+
+        /// <summary>
+        /// 로딩 진행률을 업데이트합니다.
+        /// 커스텀 LoadingUI에서 오버라이드하여 진행률 표시 기능을 구현할 수 있습니다.
+        /// </summary>
+        /// <param name="progress">진행률 (0.0 ~ 1.0)</param>
+        public virtual void UpdateProgress(float progress)
+        {
+            // 기본 구현은 비어 있음
+            // 커스텀 LoadingUI에서 오버라이드하여 Slider, Text 등을 업데이트
+        }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Common.SceneLoader
@@ -34,6 +35,11 @@ namespace Common.SceneLoader
         /// 페이드 지속 시간 (초)
         /// </summary>
         public float FadeDuration { get; set; } = 0.5f;
+
+        /// <summary>
+        /// 씬 로드 진행률 콜백 (0.0 ~ 1.0)
+        /// </summary>
+        public Action<float> OnProgress { get; set; } = null;
 
         /// <summary>
         /// 기본 전환 옵션 (효과 없이 즉시 전환)
