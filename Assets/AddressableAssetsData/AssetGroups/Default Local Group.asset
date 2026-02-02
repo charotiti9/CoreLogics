@@ -15,8 +15,18 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: ee39d4853b6a553468c0b01822f12c68
   m_SerializeEntries:
+  - m_GUID: 3b5a80f7a6d3c4988b1b48dea56e602c
+    m_Address: Common/SceneFadeUI
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 63859079497e26340905239c8130d289
     m_Address: Assets/Data/CSV/CheatData.csv
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 76607f15e04dc46a5830a1cb18ab5e2d
+    m_Address: Common/LoadingUI
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
