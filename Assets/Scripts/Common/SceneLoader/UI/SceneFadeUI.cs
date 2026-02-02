@@ -2,6 +2,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using Core.Utilities;
 using Common.UI;
 
 namespace Common.SceneLoader
@@ -116,8 +117,6 @@ namespace Common.SceneLoader
         /// <param name="ct">CancellationToken</param>
         public async UniTask FadeInAsync(float duration, CancellationToken ct)
         {
-            Debug.Log($"[SceneFadeUI] FadeInAsync 시작 - canvasGroup: {canvasGroup != null}, gameObject: {gameObject != null}");
-
             CancelCurrentFade();
 
             fadeCts = new CancellationTokenSource();
@@ -125,13 +124,11 @@ namespace Common.SceneLoader
 
             try
             {
-                Debug.Log($"[SceneFadeUI] FadeAsync 호출 전");
                 await FadeAsync(1f, 0f, duration, linkedCt);
-                Debug.Log($"[SceneFadeUI] FadeAsync 완료");
             }
             catch (System.OperationCanceledException)
             {
-                Debug.Log($"[SceneFadeUI] FadeInAsync 취소됨");
+                GameLogger.LogError($"[SceneFadeUI] FadeInAsync 취소됨");
                 throw;
             }
         }
@@ -175,18 +172,15 @@ namespace Common.SceneLoader
         /// </summary>
         private async UniTask FadeAsync(float from, float to, float duration, CancellationToken ct)
         {
-            Debug.Log($"[SceneFadeUI] FadeAsync 시작 - from: {from}, to: {to}, duration: {duration}");
-
             if (canvasGroup == null)
             {
-                Debug.LogError($"[SceneFadeUI] canvasGroup이 null입니다.");
+                GameLogger.LogError($"[SceneFadeUI] canvasGroup이 null입니다.");
                 return;
             }
 
             if (duration <= 0f)
             {
                 canvasGroup.alpha = to;
-                Debug.Log($"[SceneFadeUI] duration이 0이라 즉시 완료");
                 return;
             }
 
@@ -203,21 +197,10 @@ namespace Common.SceneLoader
                 canvasGroup.alpha = Mathf.Lerp(from, to, t);
                 frameCount++;
 
-                if (frameCount == 1)
-                {
-                    Debug.Log($"[SceneFadeUI] 첫 프레임 시작");
-                }
-
                 await UniTask.Yield(PlayerLoopTiming.Update, ct);
-
-                if (frameCount == 1)
-                {
-                    Debug.Log($"[SceneFadeUI] 첫 프레임 완료");
-                }
             }
 
             canvasGroup.alpha = to;
-            Debug.Log($"[SceneFadeUI] FadeAsync 완료 - 총 {frameCount} 프레임");
         }
 
         /// <summary>
