@@ -20,10 +20,7 @@ namespace Common.Audio
 
         private UniTaskCompletionSource completionSource;
 
-        /// <summary>
-        /// SpatialSFXSound 초기화 (Prefab의 AudioSource 컴포넌트 참조)
-        /// </summary>
-        public override void Initialize()
+        private void Awake()
         {
             // AudioSource는 Prefab에 미리 포함되어 있음
             audioSource = GetComponent<AudioSource>();
@@ -38,12 +35,15 @@ namespace Common.Audio
             audioSource.playOnAwake = false;
             audioSource.loop = false;
             audioSource.spatialBlend = 1f;  // 완전한 3D 사운드
+        }
 
-            // 거리 감쇠 설정 (AudioConfig에서 가져옴)
-            audioSource.rolloffMode = AudioRolloffMode.Linear;
-            var config = AudioManager.Instance.Config;
-            audioSource.minDistance = config.spatialMinDistance;
-            audioSource.maxDistance = config.spatialMaxDistance;
+
+        /// <summary>
+        /// SpatialSFXSound 초기화 (Pool 시스템 사용 시 Awake()에서 자동 초기화됨)
+        /// </summary>
+        public override void Initialize()
+        {
+            // AudioSoundBase의 abstract 구현을 위해 유지
         }
 
         /// <summary>
@@ -52,6 +52,12 @@ namespace Common.Audio
         public void PlayAtPosition(AudioClip clip, string address, Vector3 position, float volume)
         {
             transform.position = position;
+
+            // 거리 감쇠 설정 (AudioConfig에서 가져옴)
+            audioSource.rolloffMode = AudioRolloffMode.Linear;
+            var config = AudioManager.Instance.Config;
+            audioSource.minDistance = config.spatialMinDistance;
+            audioSource.maxDistance = config.spatialMaxDistance;
 
             AudioSource.clip = clip;
             AudioSource.volume = volume;
