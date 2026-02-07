@@ -7,7 +7,8 @@ namespace Common.Audio
     {
         BGM,
         SFX,
-        Voice
+        Voice,
+        Ambient
     }
 
     /// <summary>

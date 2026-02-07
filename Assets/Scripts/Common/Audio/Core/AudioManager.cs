@@ -18,10 +18,12 @@ namespace Common.Audio
         private AudioChannel bgmChannel;
         private SFXChannel sfxChannel;
         private AudioChannel voiceChannel;
+        private AudioChannel ambientChannel;
 
         // 한 번에 하나만 재생되는 것들은 미리 spawn (SFX는 pooling 사용)
         private BGMSound bgmSound;
         private VoiceSound voiceSound;
+        private BGMSound ambientSound;
 
         private AudioVolume volumeManager;
         [SerializeField] private AudioConfig config;
@@ -54,10 +56,12 @@ namespace Common.Audio
                 bgmChannel = new AudioChannel(AudioChannelType.BGM);
                 sfxChannel = new SFXChannel(config.maxConcurrentSFX);
                 voiceChannel = new AudioChannel(AudioChannelType.Voice);
+                ambientChannel = new AudioChannel(AudioChannelType.Ambient);
 
                 // 3. 사운드 객체 생성 (런타임 생성)
-                bgmSound = CreateBGMSound();
+                bgmSound = CreateBGMSound("BGMSound");
                 voiceSound = CreateVoiceSound();
+                ambientSound = CreateBGMSound("AmbientSound");
 
                 // 4. 볼륨 매니저 초기화
                 volumeManager = new AudioVolume();
@@ -208,6 +212,134 @@ namespace Common.Audio
                 }
             }
         }
+        #endregion
+
+        #region Ambient API
+
+        /// <summary>
+        /// Ambient 재생 (페이드 인 지원)
+        /// </summary>
+        public async UniTask PlayAmbientAsync(string address, float fadeInDuration = 0f, CancellationToken ct = default)
+        {
+            await WaitForInitializeAsync(ct);
+
+            // 1. 이미 같은 Ambient가 재생 중이면 무시
+            if (ambientSound.CurrentAddress == address && ambientSound.IsPlaying)
+            {
+                GameLogger.Log($"Ambient already playing: {address}");
+                return;
+            }
+
+            // 2. 현재 Ambient 페이드 아웃
+            if (ambientSound.IsPlaying)
+            {
+                await ambientSound.StopAsync(fadeInDuration, ct);
+            }
+
+            AudioClip clip = null;
+            bool clipLoaded = false;
+
+            try
+            {
+                // 3. 새 Ambient 로드
+                clip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(address, ct);
+                clipLoaded = true;
+
+                // 4. 재생 (페이드 인)
+                float volume = ambientChannel.GetFinalVolume(AmbientVolume);
+                await ambientSound.PlayAsync(address, clip, volume, fadeInDuration, ct);
+
+                // 성공 시 clipLoaded를 false로 설정 (Release 책임이 ambientSound로 이전됨)
+                clipLoaded = false;
+
+                GameLogger.Log($"Ambient started: {address}");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"PlayAmbientAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 로드는 성공했지만 PlayAsync에서 실패한 경우에만 Release
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(address);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Ambient 정지 (페이드 아웃 지원)
+        /// </summary>
+        public async UniTask StopAmbientAsync(float fadeOutDuration = 0f, CancellationToken ct = default)
+        {
+            await WaitForInitializeAsync(ct);
+            await ambientSound.StopAsync(fadeOutDuration, ct);
+        }
+
+        /// <summary>
+        /// Ambient 일시정지
+        /// </summary>
+        public void PauseAmbient()
+        {
+            ambientSound.Pause();
+        }
+
+        /// <summary>
+        /// Ambient 재개
+        /// </summary>
+        public void ResumeAmbient()
+        {
+            ambientSound.Resume();
+        }
+
+        /// <summary>
+        /// Ambient 크로스페이드 전환
+        /// </summary>
+        public async UniTask CrossFadeAmbientAsync(string newAddress, float duration, CancellationToken ct = default)
+        {
+            await WaitForInitializeAsync(ct);
+
+            AudioClip newClip = null;
+            bool clipLoaded = false;
+
+            try
+            {
+                // 1. 새 Ambient 로드
+                newClip = await AddressableLoader.Instance.LoadAssetAsync<AudioClip>(newAddress, ct);
+                clipLoaded = true;
+
+                // 2. 크로스페이드 실행
+                float volume = ambientChannel.GetFinalVolume(AmbientVolume);
+                await ambientSound.CrossFadeAsync(newAddress, newClip, volume, duration, ct);
+
+                // 성공 시 clipLoaded를 false로 설정 (Release 책임이 ambientSound로 이전됨)
+                clipLoaded = false;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                GameLogger.LogError($"CrossFadeAmbientAsync failed: {e.Message}");
+                throw;
+            }
+            finally
+            {
+                // 로드는 성공했지만 CrossFadeAsync에서 실패한 경우에만 Release
+                if (clipLoaded)
+                {
+                    AddressableLoader.Instance.Release(newAddress);
+                }
+            }
+        }
+
         #endregion
 
         #region SFX API
@@ -366,6 +498,38 @@ namespace Common.Audio
             set => volumeManager.IsVoiceMuted = value;
         }
 
+        public float AmbientVolume
+        {
+            get => ambientChannel.Volume;
+            set
+            {
+                ambientChannel.Volume = value;
+                ApplyAmbientVolume();
+            }
+        }
+
+        public bool IsAmbientMuted
+        {
+            get => ambientChannel.IsMuted;
+            set
+            {
+                ambientChannel.IsMuted = value;
+                ApplyAmbientVolume();
+            }
+        }
+
+        /// <summary>
+        /// 재생 중인 Ambient에 볼륨 즉시 적용
+        /// </summary>
+        private void ApplyAmbientVolume()
+        {
+            if (ambientSound != null && ambientSound.IsPlaying)
+            {
+                float finalVolume = ambientChannel.GetFinalVolume(1f);
+                ambientSound.AudioSource.volume = finalVolume;
+            }
+        }
+
         public void SaveSettings()
         {
             volumeManager.SaveSettings();
@@ -403,6 +567,7 @@ namespace Common.Audio
             bgmChannel.Update(deltaTime);
             sfxChannel.Update(deltaTime);
             voiceChannel.Update(deltaTime);
+            ambientChannel.Update(deltaTime);
         }
 
         public void Dispose()
@@ -411,9 +576,9 @@ namespace Common.Audio
             SaveSettings();
         }
 
-        private BGMSound CreateBGMSound()
+        private BGMSound CreateBGMSound(string name)
         {
-            var go = new GameObject("BGMSound");
+            var go = new GameObject(name);
             go.transform.SetParent(transform);
             var sound = go.AddComponent<BGMSound>();
             sound.Initialize();

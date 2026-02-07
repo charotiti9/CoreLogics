@@ -56,9 +56,9 @@ namespace Common.Audio
                 return null;
             }
 
-            // 4. 재생
-            float finalVolume = GetFinalVolume(volume);
-            sound.Play(clip, address, finalVolume, priority);
+            // 4. 재생 (원래 볼륨 전달 후 채널 볼륨 적용)
+            sound.Play(clip, address, volume, priority);
+            sound.AudioSource.volume = GetFinalVolume(volume);
 
             // 5. 활성 리스트에 추가
             active2DSounds.Add(sound);
@@ -90,9 +90,10 @@ namespace Common.Audio
                 spatialSound = await PoolManager.GetFromPool<SpatialSFXSound>(ct);
                 soundAcquired = true;
 
-                // 3. 재생
+                // 3. 재생 (원래 볼륨 전달 후 채널 볼륨 적용)
                 spatialSound.transform.position = position;
                 spatialSound.PlayAtPosition(clip, address, position, volume);
+                spatialSound.AudioSource.volume = GetFinalVolume(volume);
 
                 active3DSounds.Add(spatialSound);
 
@@ -141,6 +142,7 @@ namespace Common.Audio
                 PoolManager.ReturnToPool(sound);
             }
             active2DSounds.Clear();
+            priorityQueue2D.Clear();
 
             // 3D 정지
             for (int i = active3DSounds.Count - 1; i >= 0; i--)
@@ -225,10 +227,16 @@ namespace Common.Audio
                 }
             }
 
-            // 3. 볼륨 업데이트 (2D만, Dirty일 때만)
+            // 3. 볼륨 업데이트 (2D + 3D, Dirty일 때만)
             if (volumeDirty)
             {
                 foreach (var sound in active2DSounds)
+                {
+                    float finalVolume = GetFinalVolume(sound.LocalVolume);
+                    sound.AudioSource.volume = finalVolume;
+                }
+
+                foreach (var sound in active3DSounds)
                 {
                     float finalVolume = GetFinalVolume(sound.LocalVolume);
                     sound.AudioSource.volume = finalVolume;
