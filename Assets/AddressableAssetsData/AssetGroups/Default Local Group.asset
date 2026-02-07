@@ -40,6 +40,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b2bacb249b31d4a518cd0aed5e2a2238
+    m_Address: Audio/SpatialSFXSound
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c7ab73a49c6de2a46a8d2a6bbfe51105
     m_Address: Assets/Data/Settings/LocalizationSettings.asset
     m_ReadOnly: 0
