@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using static Core.Utilities.GameLogger;
 
@@ -64,7 +64,6 @@ namespace Core.Utilities
             }
 
             references[key] = new ReferenceInfo(value);
-            Log($"[{logName}] 참조 추가: {key} (Count: 1)");
         }
 
         /// <summary>
@@ -80,7 +79,6 @@ namespace Core.Utilities
             }
 
             info.Count++;
-            Log($"[{logName}] 참조 증가: {key} (Count: {info.Count})");
             return true;
         }
 
@@ -98,7 +96,6 @@ namespace Core.Utilities
             }
 
             info.Count--;
-            Log($"[{logName}] 참조 감소: {key} (Count: {info.Count})");
 
             // 참조 카운트가 0이 되면 해제
             if (info.Count <= 0)
@@ -108,8 +105,6 @@ namespace Core.Utilities
 
                 // 딕셔너리에서 제거
                 references.Remove(key);
-
-                Log($"[{logName}] 참조 해제: {key}");
             }
         }
 

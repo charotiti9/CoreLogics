@@ -27,10 +27,7 @@ namespace Core.Addressable.Tracker
         /// </summary>
         public void Clear()
         {
-            int count = loadingTasks.Count;
             loadingTasks.Clear();
-
-            Log($"[AssetLoadCache] 모든 캐시 제거 완료 (개수: {count})");
         }
 
         #region 캐시 관리
@@ -43,13 +40,7 @@ namespace Core.Addressable.Tracker
         /// <returns>로딩 중인 작업이 있으면 true</returns>
         public bool TryGetLoadingTask(string address, out UniTask<UnityEngine.Object> task)
         {
-            if (loadingTasks.TryGetValue(address, out task))
-            {
-                Log($"[AssetLoadCache] 로딩 중인 작업 발견: {address}");
-                return true;
-            }
-
-            return false;
+            return loadingTasks.TryGetValue(address, out task);
         }
 
         /// <summary>
@@ -60,7 +51,6 @@ namespace Core.Addressable.Tracker
         public void RegisterLoadingTask(string address, UniTask<UnityEngine.Object> task)
         {
             loadingTasks[address] = task;
-            Log($"[AssetLoadCache] 로딩 작업 등록: {address}");
         }
 
         /// <summary>
@@ -69,10 +59,7 @@ namespace Core.Addressable.Tracker
         /// <param name="address">Addressable Address</param>
         public void CompleteLoadingTask(string address)
         {
-            if (loadingTasks.Remove(address))
-            {
-                Log($"[AssetLoadCache] 로딩 완료 및 캐시 제거: {address}");
-            }
+            loadingTasks.Remove(address);
         }
 
         #endregion

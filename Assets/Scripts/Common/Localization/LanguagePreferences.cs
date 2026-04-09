@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Core.Utilities;
 
 /// <summary>
@@ -34,13 +34,11 @@ public class LanguagePreferences
         {
             int savedLanguage = PlayerPrefs.GetInt(LANGUAGE_PREFS_KEY);
             currentLanguage = (LanguageType)savedLanguage;
-            GameLogger.Log($"[LanguagePreferences] 저장된 언어 로드: {currentLanguage}");
         }
         else
         {
             // 저장된 언어가 없으면 시스템 언어 감지
             currentLanguage = DetectSystemLanguage();
-            GameLogger.Log($"[LanguagePreferences] 시스템 언어 감지: {currentLanguage}");
         }
     }
 

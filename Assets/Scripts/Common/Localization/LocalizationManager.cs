@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using UnityEngine;
 using TMPro;
@@ -68,7 +68,6 @@ public class LocalizationManager : EagerSingleton<LocalizationManager>
 
         isInitialized = true;
 
-        GameLogger.Log($"[LocalizationManager] 초기화 완료 - 현재 언어: {CurrentLanguage}");
 
         // 초기화 완료 후 이벤트 발행하여 모든 LocalizedText 컴포넌트 업데이트
         OnLanguageChanged?.Invoke(CurrentLanguage);

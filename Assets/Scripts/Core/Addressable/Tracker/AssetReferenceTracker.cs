@@ -32,7 +32,6 @@ namespace Core.Addressable.Tracker
                     if (handle.IsValid())
                     {
                         Addressables.Release(handle);
-                        Log($"[AssetReferenceTracker] 리소스 실제 해제: {address}");
                     }
                     assetTypes.Remove(address);
                 },

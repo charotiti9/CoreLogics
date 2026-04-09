@@ -66,7 +66,6 @@ public class LocalizationDataProvider
             localizationDict[data.Key] = data;
         }
 
-        GameLogger.Log($"[LocalizationDataProvider] 로컬라이징 데이터 로드 완료: {localizationDict.Count}개");
     }
 
     /// <summary>

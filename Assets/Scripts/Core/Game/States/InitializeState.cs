@@ -27,20 +27,18 @@ namespace Core.Game.States
         {
             try
             {
+                GameLogger.Log("[InitializeState] 게임 초기화를 시작합니다.");
+
                 // 1. UIManager는 EagerMonoSingleton으로 씬에 배치되어 Awake에서 자동 초기화됨
 
                 // 2. 다른 싱글톤 매니저들도 EagerMonoSingleton을 사용하므로 씬에 배치되어야 함
                 // AudioManager, PoolManager 등은 Awake에서 자동 초기화됨
 
                 // 3. CSV 데이터 로딩 (CSVManager.Initialize가 내부적으로 LoadAllTablesAsync 호출)
-                GameLogger.Log("[InitializeState] CSV 데이터 로딩 중...");
                 await CSVManager.Instance.Initialize(context.CancellationToken);
-                GameLogger.Log("[InitializeState] CSV 데이터 로딩 완료");
 
                 // 4. Localization 초기화
-                GameLogger.Log("[InitializeState] Localization 초기화 중...");
                 await LocalizationManager.Instance.InitializeLocalizeCSVAsync(context.CancellationToken);
-                GameLogger.Log("[InitializeState] Localization 초기화 완료");
 
                 // 5. 초기화 완료 표시
                 context.IsInitialized = true;
@@ -49,7 +47,7 @@ namespace Core.Game.States
                 // 주의: 실제 프로젝트에서는 TitleState를 구현해야 합니다
                 // context.StateMachine.ChangeState(new TitleState());
 
-                GameLogger.Log("[InitializeState] 초기화 완료. 다음 상태로 전환하세요.");
+                GameLogger.Log("[InitializeState] 게임 초기화가 완료되었습니다.");
             }
             catch (OperationCanceledException)
             {
@@ -71,7 +69,6 @@ namespace Core.Game.States
 
         public void Exit(GameContext context)
         {
-            GameLogger.Log("[InitializeState] 상태 종료");
         }
     }
 }

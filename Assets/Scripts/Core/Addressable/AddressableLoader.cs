@@ -32,7 +32,6 @@ namespace Core.Addressable
             loadCache = new AssetLoadCache();
             debugger = new AddressableDebugger(referenceTracker, loadCache);
 
-            Log("[AddressableLoader] 초기화 완료");
         }
 
         protected override void OnDestroy()
@@ -55,7 +54,6 @@ namespace Core.Addressable
         /// <returns>로드된 리소스</returns>
         public async UniTask<T> LoadAssetAsync<T>(string address, CancellationToken ct = default) where T : UnityEngine.Object
         {
-            Log($"[AddressableLoader] 로드 시도: {address}");
             if (string.IsNullOrEmpty(address))
             {
                 LogError("[AddressableLoader] Address가 비어있습니다.");
@@ -66,21 +64,17 @@ namespace Core.Addressable
             if (referenceTracker.TryGetHandle(address, out var existingHandle))
             {
                 referenceTracker.IncreaseReference(address);
-                Log($"[AddressableLoader] 리소스 재사용: {address}");
                 return existingHandle.Result as T;
             }
 
             // 2. 로딩 중인 작업이 있으면 대기 (중복 로드 방지)
             if (loadCache.TryGetLoadingTask(address, out var loadingTask))
             {
-                Log($"[AddressableLoader] 로딩 중인 작업 대기: {address}");
-
                 // 이미 로딩 중이면 완료될 때까지 대기
                 var result = await loadingTask;
 
                 // 로드 완료 후 참조 증가
                 referenceTracker.IncreaseReference(address);
-                Log($"[AddressableLoader] 중복 로드 방지 후 참조 증가: {address}");
                 return result as T;
             }
 
@@ -127,7 +121,6 @@ namespace Core.Addressable
                 // 핸들 저장 (참조 카운트 1로 시작)
                 referenceTracker.AddReference(address, handle, typeof(T));
 
-                Log($"[AddressableLoader] 리소스 로드 성공: {address}");
                 return handle.Result;
             }
             catch (Exception ex)
@@ -156,7 +149,6 @@ namespace Core.Addressable
             if (referenceTracker.TryGetHandle(label, out var existingHandle))
             {
                 referenceTracker.IncreaseReference(label);
-                Log($"[AddressableLoader] 라벨 리소스 재사용: {label}");
                 return existingHandle.Result as IList<T>;
             }
 
@@ -175,7 +167,6 @@ namespace Core.Addressable
                 // 핸들 저장
                 referenceTracker.AddReference(label, handle, typeof(T));
 
-                Log($"[AddressableLoader] 라벨 리소스 로드 성공: {label} (개수: {handle.Result.Count})");
                 return handle.Result;
             }
             catch (Exception ex)

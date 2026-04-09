@@ -1,4 +1,4 @@
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -7,7 +7,7 @@ using UnityEngine;
 using Core.Utilities;
 
 /// <summary>
-/// 모든 CSV 데이터를 Generic하게 관리하는 싱글톤
+/// 모든 CSV 데이터를 Generic하게 관리하는 싱글톤입니다.
 /// </summary>
 public class CSVManager : LazySingleton<CSVManager>
 {
@@ -16,32 +16,23 @@ public class CSVManager : LazySingleton<CSVManager>
     private List<Type> csvDataTypes = new List<Type>();
 
     /// <summary>
-    /// 모든 CSV 로드 및 참조 해결
+    /// 모든 CSV를 로드하고 참조를 해결합니다.
     /// </summary>
-    /// <param name="cancellationToken">취소 토큰</param>
+    /// <param name="cancellationToken">취소 토큰입니다.</param>
     public async UniTask Initialize(CancellationToken cancellationToken = default)
     {
-        GameLogger.Log("[CSVManager] 초기화 시작");
+        int csvTypeCount = FindAllCSVDataTypes();
+        int loadedSchemaCount = await LoadAllSchemasAsync(cancellationToken);
+        int loadedTableCount = await LoadAllTablesAsync(cancellationToken);
+        int resolvedReferenceCount = ResolveAllReferences();
 
-        // 1. Assembly에서 ICSVData 타입 찾기
-        FindAllCSVDataTypes();
-
-        // 2. 모든 스키마 로드
-        await LoadAllSchemasAsync(cancellationToken);
-
-        // 3. 모든 데이터 로드
-        await LoadAllTablesAsync(cancellationToken);
-
-        // 4. 참조 해결
-        ResolveAllReferences();
-
-        GameLogger.Log("[CSVManager] 초기화 완료");
+        GameLogger.Log($"[CSVManager] 초기화 완료 - 타입 {csvTypeCount}개, 스키마 {loadedSchemaCount}개, 테이블 {loadedTableCount}개, 참조 해결 {resolvedReferenceCount}개");
     }
 
     /// <summary>
-    /// Assembly에서 ICSVData를 구현한 모든 타입 찾기
+    /// Assembly에서 ICSVData를 구현한 모든 타입을 찾습니다.
     /// </summary>
-    private void FindAllCSVDataTypes()
+    private int FindAllCSVDataTypes()
     {
         csvDataTypes.Clear();
 
@@ -57,16 +48,19 @@ public class CSVManager : LazySingleton<CSVManager>
                 !type.IsAbstract)
             {
                 csvDataTypes.Add(type);
-                GameLogger.Log($"[CSVManager] CSV 타입 발견: {type.Name}");
             }
         }
+
+        return csvDataTypes.Count;
     }
 
     /// <summary>
-    /// 모든 스키마 로드
+    /// 모든 스키마를 로드하고 성공 개수를 반환합니다.
     /// </summary>
-    private async UniTask LoadAllSchemasAsync(CancellationToken cancellationToken)
+    private async UniTask<int> LoadAllSchemasAsync(CancellationToken cancellationToken)
     {
+        int loadedSchemaCount = 0;
+
         for (int i = 0; i < csvDataTypes.Count; i++)
         {
             Type type = csvDataTypes[i];
@@ -76,20 +70,24 @@ public class CSVManager : LazySingleton<CSVManager>
             {
                 CSVSchema schema = await CSVSchemaParser.ParseSchemaAsync(tableName, cancellationToken);
                 schemas[tableName] = schema;
-                GameLogger.Log($"[CSVManager] 스키마 로드 완료: {tableName}");
+                loadedSchemaCount++;
             }
             catch (Exception e)
             {
                 GameLogger.LogError($"[CSVManager] 스키마 로드 실패: {tableName}\n{e.Message}");
             }
         }
+
+        return loadedSchemaCount;
     }
 
     /// <summary>
-    /// 모든 테이블 로드 (Generic, Reflection 사용)
+    /// 모든 테이블을 로드하고 성공 개수를 반환합니다.
     /// </summary>
-    private async UniTask LoadAllTablesAsync(CancellationToken cancellationToken)
+    private async UniTask<int> LoadAllTablesAsync(CancellationToken cancellationToken)
     {
+        int loadedTableCount = 0;
+
         for (int i = 0; i < csvDataTypes.Count; i++)
         {
             Type type = csvDataTypes[i];
@@ -97,18 +95,17 @@ public class CSVManager : LazySingleton<CSVManager>
 
             try
             {
-                // CSVParser.ParseAsync<T>를 Reflection으로 호출
+                // Reflection으로 CSVParser.ParseAsync<T>()를 호출합니다.
                 MethodInfo method = typeof(CSVParser).GetMethod("ParseAsync",
                     BindingFlags.Public | BindingFlags.Static);
 
                 if (method == null)
                 {
-                    GameLogger.LogError($"[CSVManager] ParseAsync 메서드를 찾을 수 없음");
+                    GameLogger.LogError("[CSVManager] ParseAsync 메서드를 찾을 수 없음");
                     continue;
                 }
 
                 MethodInfo genericMethod = method.MakeGenericMethod(type);
-
                 object[] parameters = new object[] { tableName, cancellationToken, CSVParser.ParseMode.Lenient };
                 object task = genericMethod.Invoke(null, parameters);
 
@@ -118,7 +115,6 @@ public class CSVManager : LazySingleton<CSVManager>
                     continue;
                 }
 
-                // UniTask<List<T>> await
                 Type taskType = task.GetType();
                 MethodInfo getAwaiterMethod = taskType.GetMethod("GetAwaiter");
 
@@ -127,7 +123,7 @@ public class CSVManager : LazySingleton<CSVManager>
                     object awaiter = getAwaiterMethod.Invoke(task, null);
                     Type awaiterType = awaiter.GetType();
 
-                    // GetResult로 결과 가져오기 (동기적으로 대기)
+                    // Reflection 기반 UniTask 결과를 안전하게 회수합니다.
                     while (true)
                     {
                         PropertyInfo isCompletedProp = awaiterType.GetProperty("IsCompleted");
@@ -138,29 +134,30 @@ public class CSVManager : LazySingleton<CSVManager>
                             MethodInfo getResultMethod = awaiterType.GetMethod("GetResult");
                             object result = getResultMethod.Invoke(awaiter, null);
                             tables[type] = result;
+                            loadedTableCount++;
                             break;
                         }
 
                         await UniTask.Yield();
                     }
                 }
-
-                GameLogger.Log($"[CSVManager] 테이블 로드 완료: {tableName}");
             }
             catch (Exception e)
             {
                 GameLogger.LogError($"[CSVManager] 테이블 로드 실패: {tableName}\n{e.Message}\n{e.StackTrace}");
             }
         }
+
+        return loadedTableCount;
     }
 
     /// <summary>
-    /// 모든 참조 해결 (Generic)
+    /// 모든 참조를 해결하고 성공 개수를 반환합니다.
     /// </summary>
-    private void ResolveAllReferences()
+    private int ResolveAllReferences()
     {
-        // 테이블명 → 데이터 매핑
         Dictionary<string, object> tableMap = new Dictionary<string, object>();
+        int resolvedReferenceCount = 0;
 
         for (int i = 0; i < csvDataTypes.Count; i++)
         {
@@ -173,7 +170,6 @@ public class CSVManager : LazySingleton<CSVManager>
             }
         }
 
-        // 각 테이블의 참조 해결
         for (int i = 0; i < csvDataTypes.Count; i++)
         {
             Type type = csvDataTypes[i];
@@ -188,24 +184,25 @@ public class CSVManager : LazySingleton<CSVManager>
 
                 if (method == null)
                 {
-                    GameLogger.LogError($"[CSVManager] ResolveReferences 메서드를 찾을 수 없음");
+                    GameLogger.LogError("[CSVManager] ResolveReferences 메서드를 찾을 수 없음");
                     continue;
                 }
 
                 MethodInfo genericMethod = method.MakeGenericMethod(type);
                 genericMethod.Invoke(null, new object[] { tables[type], tableMap });
-
-                GameLogger.Log($"[CSVManager] 참조 해결 완료: {type.Name}");
+                resolvedReferenceCount++;
             }
             catch (Exception e)
             {
                 GameLogger.LogError($"[CSVManager] 참조 해결 실패: {type.Name}\n{e.Message}");
             }
         }
+
+        return resolvedReferenceCount;
     }
 
     /// <summary>
-    /// 타입으로부터 테이블명 추출
+    /// 타입으로부터 테이블명을 추출합니다.
     /// </summary>
     private string GetTableName(Type type)
     {
@@ -217,7 +214,7 @@ public class CSVManager : LazySingleton<CSVManager>
     }
 
     /// <summary>
-    /// 특정 타입의 테이블 가져오기
+    /// 특정 타입의 테이블을 반환합니다.
     /// </summary>
     public List<T> GetTable<T>() where T : ICSVData
     {
@@ -229,7 +226,7 @@ public class CSVManager : LazySingleton<CSVManager>
     }
 
     /// <summary>
-    /// 특정 테이블의 스키마 가져오기
+    /// 특정 테이블의 스키마를 반환합니다.
     /// </summary>
     public CSVSchema GetSchema(string tableName)
     {
@@ -241,11 +238,10 @@ public class CSVManager : LazySingleton<CSVManager>
     }
 
     /// <summary>
-    /// 로드된 모든 테이블 타입 반환
+    /// 로드된 모든 테이블 타입을 반환합니다.
     /// </summary>
     public List<Type> GetAllTableTypes()
     {
         return new List<Type>(csvDataTypes);
     }
-
 }
