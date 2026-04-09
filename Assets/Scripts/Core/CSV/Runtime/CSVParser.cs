@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using UnityEngine;
 using Core.Utilities;
@@ -87,10 +88,10 @@ public static class CSVParser
     /// </summary>
     private static List<T> ParseCSVText<T>(string csvText, string filePath, ParseMode mode) where T : new()
     {
-        // 1. 줄 단위로 분할
-        string[] lines = csvText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        // 1. 따옴표로 감싼 필드 내부의 개행을 보존하면서 레코드 단위로 분할
+        List<string> lines = SplitCSVRecords(csvText);
 
-        if (lines.Length < 2)
+        if (lines.Count < 2)
         {
             GameLogger.LogError($"[CSVParser] CSV 파일이 비어있거나 헤더만 존재합니다: {filePath}");
             return new List<T>();
@@ -109,13 +110,11 @@ public static class CSVParser
         List<ColumnMapper> columnMappers = BuildColumnMappers<T>(headers);
 
         // 4. 결과 리스트 생성 (capacity 최적화)
-        int estimatedRows = lines.Length - 1;
+        int estimatedRows = lines.Count - 1;
         List<T> result = new List<T>(estimatedRows);
 
-        Type type = typeof(T);
-
         // 5. 데이터 행 파싱
-        for (int i = 1; i < lines.Length; i++)
+        for (int i = 1; i < lines.Count; i++)
         {
             string line = lines[i].Trim();
 
@@ -178,6 +177,66 @@ public static class CSVParser
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// CSV 텍스트를 레코드 단위로 분할 (따옴표 내부 개행 보존)
+    /// </summary>
+    private static List<string> SplitCSVRecords(string csvText)
+    {
+        List<string> records = new List<string>();
+
+        if (string.IsNullOrEmpty(csvText))
+        {
+            return records;
+        }
+
+        StringBuilder currentRecord = new StringBuilder(csvText.Length);
+        bool inQuotes = false;
+
+        for (int i = 0; i < csvText.Length; i++)
+        {
+            char c = csvText[i];
+
+            if (c == '"')
+            {
+                currentRecord.Append(c);
+
+                if (i + 1 < csvText.Length && csvText[i + 1] == '"')
+                {
+                    currentRecord.Append(csvText[i + 1]);
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+
+                continue;
+            }
+
+            if (!inQuotes && (c == '\r' || c == '\n'))
+            {
+                records.Add(currentRecord.ToString());
+                currentRecord.Clear();
+
+                if (c == '\r' && i + 1 < csvText.Length && csvText[i + 1] == '\n')
+                {
+                    i++;
+                }
+
+                continue;
+            }
+
+            currentRecord.Append(c);
+        }
+
+        if (currentRecord.Length > 0)
+        {
+            records.Add(currentRecord.ToString());
+        }
+
+        return records;
     }
 
     /// <summary>
