@@ -29,6 +29,27 @@ namespace Common.SceneLoader
             await LoadSceneAsync(sceneAddress, SceneTransitionOptions.Default, ct);
         }
 
+        public async UniTask TransitionToSceneAsync(
+            string sceneAddress,
+            System.Func<CancellationToken, UniTask> onSceneReady = null,
+            CancellationToken ct = default)
+        {
+            SceneTransitionOptions options = SceneTransitionOptions.Default;
+            options.OnSceneReady = onSceneReady;
+            await LoadSceneAsync(sceneAddress, options, ct);
+        }
+
+        public async UniTask TransitionToSceneAsync(
+            string sceneAddress,
+            SceneTransitionOptions options,
+            System.Func<CancellationToken, UniTask> onSceneReady = null,
+            CancellationToken ct = default)
+        {
+            options ??= SceneTransitionOptions.Default;
+            options.OnSceneReady = onSceneReady;
+            await LoadSceneAsync(sceneAddress, options, ct);
+        }
+
         /// <summary>
         /// 씬을 비동기로 로드합니다.
         /// </summary>
@@ -42,6 +63,7 @@ namespace Common.SceneLoader
                 GameLogger.LogWarning("[SceneLoader] 이미 씬 로드가 진행 중입니다.");
                 return;
             }
+
 
             if (string.IsNullOrEmpty(sceneAddress))
             {
@@ -137,6 +159,11 @@ namespace Common.SceneLoader
             }
             currentSceneHandle = handle;
 
+            if (options.OnSceneReady != null)
+            {
+                await options.OnSceneReady(ct);
+            }
+
             // 7. 로딩 UI 숨김 (옵션)
             if (options.ShowLoadingUI)
             {
@@ -192,6 +219,11 @@ namespace Common.SceneLoader
             {
                 GameLogger.LogError($"[SceneLoader] 씬 로드 실패: {sceneAddress}");
                 return;
+            }
+
+            if (options.OnSceneReady != null)
+            {
+                await options.OnSceneReady(ct);
             }
 
             // 5. 로딩 UI 숨김 (옵션)

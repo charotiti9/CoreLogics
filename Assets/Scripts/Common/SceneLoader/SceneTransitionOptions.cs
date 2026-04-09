@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Common.SceneLoader
@@ -40,6 +42,11 @@ namespace Common.SceneLoader
         /// 씬 로드 진행률 콜백 (0.0 ~ 1.0)
         /// </summary>
         public Action<float> OnProgress { get; set; } = null;
+
+        /// <summary>
+        /// 씬 활성화 직후, 화면을 다시 보여주기 전에 실행할 준비 작업
+        /// </summary>
+        public Func<CancellationToken, UniTask> OnSceneReady { get; set; } = null;
 
         /// <summary>
         /// 기본 전환 옵션 (효과 없이 즉시 전환)
