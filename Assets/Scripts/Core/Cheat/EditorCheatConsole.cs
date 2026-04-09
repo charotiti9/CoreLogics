@@ -29,8 +29,13 @@ namespace Core.Cheat
         // 현재 입력 중인 파라미터 인덱스
         private int currentParamIndex = 0;
 
+        // CSV ID 자동완성 목록
+        private List<string> csvIdSuggestions = new List<string>();
+        private int selectedCsvSuggestionIndex = 0;
+
         // 스크롤 위치
         private Vector2 scrollPosition;
+        private Vector2 csvScrollPosition;
 
         // 히스토리
         private List<string> commandHistory = new List<string>();
@@ -89,6 +94,8 @@ namespace Core.Cheat
             selectedSuggestionIndex = 0;
             selectedCheat = null;
             currentParamIndex = 0;
+            csvIdSuggestions.Clear();
+            selectedCsvSuggestionIndex = 0;
             historyIndex = -1;
             shouldFocusInput = true;
 
@@ -263,7 +270,7 @@ namespace Core.Cheat
                     break;
 
                 case KeyCode.Tab:
-                    // Tab: 가장 유사한 항목으로 자동완성
+                    // Tab: 현재 선택된 항목으로 자동완성
                     AutoCompleteWithTab();
                     e.Use();
                     break;
@@ -273,6 +280,14 @@ namespace Core.Cheat
                     {
                         // Ctrl+↑: 히스토리 탐색
                         NavigateHistory(-1);
+                    }
+                    else if (csvIdSuggestions.Count > 0)
+                    {
+                        selectedCsvSuggestionIndex--;
+                        if (selectedCsvSuggestionIndex < 0)
+                        {
+                            selectedCsvSuggestionIndex = csvIdSuggestions.Count - 1;
+                        }
                     }
                     else if (suggestions.Count > 0)
                     {
@@ -291,6 +306,14 @@ namespace Core.Cheat
                     {
                         // Ctrl+↓: 히스토리 탐색
                         NavigateHistory(1);
+                    }
+                    else if (csvIdSuggestions.Count > 0)
+                    {
+                        selectedCsvSuggestionIndex++;
+                        if (selectedCsvSuggestionIndex >= csvIdSuggestions.Count)
+                        {
+                            selectedCsvSuggestionIndex = 0;
+                        }
                     }
                     else if (suggestions.Count > 0)
                     {
@@ -329,6 +352,7 @@ namespace Core.Cheat
                     // 현재 입력된 파라미터 개수 계산
                     string paramPart = inputText.Substring(spaceIndex + 1);
                     currentParamIndex = CountInputParameters(paramPart);
+                    UpdateCsvIdSuggestions(paramPart);
                     return;
                 }
                 else
@@ -336,6 +360,7 @@ namespace Core.Cheat
                     // 일치하는 치트가 없으면 자동완성 비활성화
                     selectedCheat = null;
                     suggestions.Clear();
+                    csvIdSuggestions.Clear();
                     return;
                 }
             }
@@ -343,6 +368,8 @@ namespace Core.Cheat
             // 공백이 없는 경우: ID 입력 중
             selectedCheat = null;
             currentParamIndex = 0;
+            csvIdSuggestions.Clear();
+            selectedCsvSuggestionIndex = 0;
 
             // 정확히 일치하는 치트가 있는지 확인
             var exact = CheatManager.Instance.GetExactMatch(searchText);
@@ -532,6 +559,53 @@ namespace Core.Cheat
 
                 GUILayout.Label($"{prefix}{param.Name} ({param.Type})", paramStyle);
             }
+
+            DrawCsvIdSuggestions(parameters);
+        }
+
+        /// <summary>
+        /// CSV ID 후보 목록을 그립니다.
+        /// </summary>
+        /// <param name="parameters">파라미터 정보 목록</param>
+        private void DrawCsvIdSuggestions(List<CheatExtensions.ParameterInfo> parameters)
+        {
+            if (csvIdSuggestions.Count == 0 ||
+                currentParamIndex < 0 ||
+                currentParamIndex >= parameters.Count)
+            {
+                return;
+            }
+
+            var currentParameter = parameters[currentParamIndex];
+            if (!currentParameter.IsCsvReference)
+            {
+                return;
+            }
+
+            GUILayout.Space(8);
+            GUILayout.Label($"{currentParameter.CsvTableName} ID 선택", new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.95f, 0.85f, 0.45f) }
+            });
+
+            float listHeight = Mathf.Min(csvIdSuggestions.Count, MAX_VISIBLE_SUGGESTIONS) * SUGGESTION_HEIGHT;
+            csvScrollPosition = GUILayout.BeginScrollView(csvScrollPosition, GUILayout.Height(listHeight));
+            {
+                for (int i = 0; i < csvIdSuggestions.Count; i++)
+                {
+                    string csvId = csvIdSuggestions[i];
+                    bool isSelected = i == selectedCsvSuggestionIndex;
+                    GUIStyle style = isSelected ? selectedSuggestionStyle : suggestionStyle;
+
+                    if (GUILayout.Button(csvId, style, GUILayout.Height(SUGGESTION_HEIGHT)))
+                    {
+                        ApplyCsvIdSuggestion(csvId);
+                    }
+                }
+            }
+            GUILayout.EndScrollView();
         }
 
         /// <summary>
@@ -598,6 +672,18 @@ namespace Core.Cheat
         /// </summary>
         private void AutoCompleteWithTab()
         {
+            if (csvIdSuggestions.Count > 0)
+            {
+                int csvIndex = selectedCsvSuggestionIndex;
+                if (csvIndex < 0 || csvIndex >= csvIdSuggestions.Count)
+                {
+                    csvIndex = 0;
+                }
+
+                ApplyCsvIdSuggestion(csvIdSuggestions[csvIndex]);
+                return;
+            }
+
             if (suggestions.Count == 0)
             {
                 return;
@@ -654,6 +740,221 @@ namespace Core.Cheat
             {
                 logMessages.RemoveAt(0);
             }
+        }
+
+        /// <summary>
+        /// 현재 파라미터가 CSV 참조형이면 후보 목록을 갱신합니다.
+        /// </summary>
+        /// <param name="paramPart">입력된 파라미터 문자열</param>
+        private void UpdateCsvIdSuggestions(string paramPart)
+        {
+            csvIdSuggestions.Clear();
+            selectedCsvSuggestionIndex = 0;
+
+            if (selectedCheat == null)
+            {
+                return;
+            }
+
+            var parameters = selectedCheat.GetParameterInfoList();
+            if (currentParamIndex < 0 || currentParamIndex >= parameters.Count)
+            {
+                return;
+            }
+
+            var currentParameter = parameters[currentParamIndex];
+            if (!currentParameter.IsCsvReference || string.IsNullOrEmpty(currentParameter.CsvTableName))
+            {
+                return;
+            }
+
+            string currentInput = GetCurrentParameterInput(paramPart);
+            csvIdSuggestions = CheatManager.Instance.GetCsvIdSuggestions(currentParameter.CsvTableName, currentInput);
+        }
+
+        /// <summary>
+        /// 현재 입력 중인 파라미터 값을 추출합니다.
+        /// </summary>
+        /// <param name="paramPart">파라미터 부분 문자열</param>
+        /// <returns>현재 파라미터 입력값</returns>
+        private string GetCurrentParameterInput(string paramPart)
+        {
+            if (string.IsNullOrEmpty(paramPart))
+            {
+                return string.Empty;
+            }
+
+            int tokenStartIndex = -1;
+            bool inQuotes = false;
+            int lastTokenStartIndex = -1;
+
+            for (int i = 0; i < paramPart.Length; i++)
+            {
+                char currentChar = paramPart[i];
+
+                if (tokenStartIndex < 0 && currentChar != ' ')
+                {
+                    tokenStartIndex = i;
+                    lastTokenStartIndex = i;
+                }
+
+                if (currentChar == '"')
+                {
+                    inQuotes = !inQuotes;
+                }
+                else if (currentChar == ' ' && !inQuotes)
+                {
+                    tokenStartIndex = -1;
+                }
+            }
+
+            if (tokenStartIndex < 0 || lastTokenStartIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            string currentInput = paramPart.Substring(lastTokenStartIndex).Trim();
+            if (string.IsNullOrEmpty(currentInput))
+            {
+                return string.Empty;
+            }
+
+            if (currentInput.Length >= 2 &&
+                currentInput[0] == '"' &&
+                currentInput[currentInput.Length - 1] == '"')
+            {
+                return currentInput.Substring(1, currentInput.Length - 2);
+            }
+
+            if (currentInput.StartsWith("\""))
+            {
+                return currentInput.Substring(1);
+            }
+
+            return currentInput;
+        }
+
+        /// <summary>
+        /// 선택된 CSV ID를 현재 파라미터에 적용합니다.
+        /// </summary>
+        /// <param name="csvId">선택한 CSV ID</param>
+        private void ApplyCsvIdSuggestion(string csvId)
+        {
+            int spaceIndex = inputText.IndexOf(' ');
+            if (spaceIndex < 0)
+            {
+                return;
+            }
+
+            string cheatId = inputText.Substring(0, spaceIndex);
+            string paramPart = inputText.Substring(spaceIndex + 1);
+            List<string> parsedParameters = ParseParameterTokens(paramPart);
+
+            while (parsedParameters.Count <= currentParamIndex)
+            {
+                parsedParameters.Add(string.Empty);
+            }
+
+            parsedParameters[currentParamIndex] = QuoteIfNeeded(csvId);
+            inputText = BuildCommandText(cheatId, parsedParameters);
+
+            if (!inputText.EndsWith(" "))
+            {
+                inputText += " ";
+            }
+
+            UpdateSuggestions();
+            shouldFocusInput = true;
+        }
+
+        /// <summary>
+        /// 파라미터 문자열을 토큰 목록으로 파싱합니다.
+        /// </summary>
+        /// <param name="paramPart">파라미터 부분 문자열</param>
+        /// <returns>토큰 목록</returns>
+        private List<string> ParseParameterTokens(string paramPart)
+        {
+            var tokens = new List<string>();
+            if (string.IsNullOrEmpty(paramPart))
+            {
+                return tokens;
+            }
+
+            bool inQuotes = false;
+            int tokenStartIndex = -1;
+
+            for (int i = 0; i < paramPart.Length; i++)
+            {
+                char currentChar = paramPart[i];
+
+                if (tokenStartIndex < 0 && currentChar != ' ')
+                {
+                    tokenStartIndex = i;
+                }
+
+                if (currentChar == '"')
+                {
+                    inQuotes = !inQuotes;
+                }
+                else if (currentChar == ' ' && !inQuotes)
+                {
+                    if (tokenStartIndex >= 0)
+                    {
+                        tokens.Add(paramPart.Substring(tokenStartIndex, i - tokenStartIndex));
+                        tokenStartIndex = -1;
+                    }
+                }
+            }
+
+            if (tokenStartIndex >= 0)
+            {
+                tokens.Add(paramPart.Substring(tokenStartIndex));
+            }
+
+            return tokens;
+        }
+
+        /// <summary>
+        /// 치트 명령 문자열을 다시 조합합니다.
+        /// </summary>
+        /// <param name="cheatId">치트 ID</param>
+        /// <param name="parameters">파라미터 목록</param>
+        /// <returns>조합된 명령 문자열</returns>
+        private string BuildCommandText(string cheatId, List<string> parameters)
+        {
+            string commandText = cheatId;
+
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                if (string.IsNullOrEmpty(parameters[i]))
+                {
+                    continue;
+                }
+
+                commandText += " " + parameters[i];
+            }
+
+            return commandText;
+        }
+
+        /// <summary>
+        /// 공백이 포함된 값은 따옴표로 감싸 반환합니다.
+        /// </summary>
+        /// <param name="value">원본 값</param>
+        /// <returns>출력용 값</returns>
+        private string QuoteIfNeeded(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            if (value.IndexOf(' ') >= 0)
+            {
+                return $"\"{value}\"";
+            }
+
+            return value;
         }
     }
 }

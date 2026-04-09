@@ -5,6 +5,8 @@
 /// </summary>
 public static class CheatExtensions
 {
+    private const string CSV_TYPE_PREFIX = "csv(";
+
     /// <summary>
     /// 사용법 문자열을 생성합니다.
     /// 예: "AddItem [itemId] [count]"
@@ -57,11 +59,15 @@ public static class CheatExtensions
     {
         public string Name;
         public string Type;
+        public bool IsCsvReference;
+        public string CsvTableName;
 
-        public ParameterInfo(string name, string type)
+        public ParameterInfo(string name, string type, bool isCsvReference = false, string csvTableName = null)
         {
             Name = name;
             Type = type;
+            IsCsvReference = isCsvReference;
+            CsvTableName = csvTableName;
         }
     }
 
@@ -86,8 +92,19 @@ public static class CheatExtensions
             var nameTypePair = paramParts[i].Split(':');
             string paramName = nameTypePair.Length > 0 ? nameTypePair[0] : "";
             string paramType = nameTypePair.Length > 1 ? nameTypePair[1] : "string";
+            bool isCsvReference = false;
+            string csvTableName = null;
 
-            result.Add(new ParameterInfo(paramName, paramType));
+            if (!string.IsNullOrEmpty(paramType) &&
+                paramType.StartsWith(CSV_TYPE_PREFIX) &&
+                paramType.EndsWith(")"))
+            {
+                isCsvReference = true;
+                csvTableName = paramType.Substring(CSV_TYPE_PREFIX.Length, paramType.Length - CSV_TYPE_PREFIX.Length - 1);
+                paramType = "csv";
+            }
+
+            result.Add(new ParameterInfo(paramName, paramType, isCsvReference, csvTableName));
         }
 
         return result;

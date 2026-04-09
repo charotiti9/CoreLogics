@@ -54,6 +54,12 @@ CSV의 `Parameters` 필드는 다음 형식으로 정의합니다:
 name:type|name:type|...
 ```
 
+CSV ID를 후보 목록으로 선택하려면 아래 확장 형식을 사용합니다:
+
+```
+name:csv(TableName)
+```
+
 **예시:**
 - `amount:int` - 정수형 파라미터 1개
 - `itemId:string|count:int` - 문자열 + 정수 파라미터 2개

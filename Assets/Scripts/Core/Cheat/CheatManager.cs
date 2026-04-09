@@ -270,6 +270,85 @@ namespace Core.Cheat
         {
             return cheatTypes.ContainsKey(id);
         }
+
+        /// <summary>
+        /// 특정 CSV 테이블의 ID 후보 목록을 반환합니다.
+        /// </summary>
+        /// <param name="tableName">CSV 테이블명</param>
+        /// <param name="filter">부분 검색 필터</param>
+        /// <returns>ID 후보 목록</returns>
+        public List<string> GetCsvIdSuggestions(string tableName, string filter)
+        {
+            var result = new List<string>();
+
+            if (string.IsNullOrEmpty(tableName) || !CSVManager.IsAlive())
+            {
+                return result;
+            }
+
+            List<Type> tableTypes = CSVManager.Instance.GetAllTableTypes();
+            Type targetType = null;
+
+            for (int i = 0; i < tableTypes.Count; i++)
+            {
+                Type tableType = tableTypes[i];
+                CSVTableAttribute attribute = tableType.GetCustomAttribute<CSVTableAttribute>();
+                string currentTableName = attribute != null ? attribute.TableName : tableType.Name;
+
+                if (string.Equals(currentTableName, tableName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetType = tableType;
+                    break;
+                }
+            }
+
+            if (targetType == null)
+            {
+                return result;
+            }
+
+            FieldInfo idField = targetType.GetField("ID", BindingFlags.Public | BindingFlags.Instance);
+            if (idField == null || idField.FieldType != typeof(string))
+            {
+                return result;
+            }
+
+            MethodInfo getTableMethod = typeof(CSVManager).GetMethod(nameof(CSVManager.GetTable));
+            MethodInfo genericGetTableMethod = getTableMethod.MakeGenericMethod(targetType);
+            object rawTable = genericGetTableMethod.Invoke(CSVManager.Instance, null);
+
+            if (!(rawTable is System.Collections.IList tableList))
+            {
+                return result;
+            }
+
+            string normalizedFilter = string.IsNullOrEmpty(filter) ? null : filter.ToLower();
+
+            for (int i = 0; i < tableList.Count; i++)
+            {
+                object row = tableList[i];
+                if (row == null)
+                {
+                    continue;
+                }
+
+                string idValue = idField.GetValue(row) as string;
+                if (string.IsNullOrEmpty(idValue))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(normalizedFilter) &&
+                    !idValue.ToLower().Contains(normalizedFilter))
+                {
+                    continue;
+                }
+
+                result.Add(idValue);
+            }
+
+            return result;
+        }
     }
 }
 #endif
